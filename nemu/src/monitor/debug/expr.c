@@ -142,10 +142,10 @@ bool check_parentheses(int p, int q) {
     printf("error:p>=q in check_parntheses\n");
     return false;
   }
-  // if(tokens[p].type != '(' || tokens[q].type != ')'){
-  //   //括号不匹配
-  //   return false;
-  // }
+  if(tokens[p].type != '(' || tokens[q].type != ')'){
+    //括号不匹配
+    return false;
+  }
   int cnt = 0; //记录当前未匹配的左括号的数目
   for(int curr = p + 1; curr < q; curr++) {
     if(tokens[curr].type == '(') {
