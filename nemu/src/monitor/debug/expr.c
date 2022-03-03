@@ -235,7 +235,7 @@ uint32_t eval(int p, int q) {
     printf("error : p>q in eval, p = %d, q = %d\n", p, q);
     assert(0);
   }
-  else if(p == q) {
+  if(p == q) {
     int num;
     switch (tokens[p].type)
     {
