@@ -220,7 +220,7 @@ int findDominantOp(int p, int q) {
           opp = 12;
           break;
         default:
-          assert(0);
+          opp = 0;
           break;
       }
       if (opp >= op) {
