@@ -132,7 +132,7 @@ static bool make_token(char *e) {
 bool check_parentheses(int p, int q) {
   if(p >= q) {
     //右括号少于左括号
-    printf('error:p>=q in check_parntheses\n');
+    printf("error:p>=q in check_parntheses\n");
     return false;
   }
   if(tokens[p].type != '(' || tokens[q].type != ')'){
