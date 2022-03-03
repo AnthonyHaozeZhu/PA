@@ -111,6 +111,8 @@ static bool make_token(char *e) {
             break;
           }
           nr_token += 1;
+          
+          break;
         }
       }
     }
