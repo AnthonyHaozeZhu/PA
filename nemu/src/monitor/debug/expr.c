@@ -7,9 +7,20 @@
 #include <regex.h>
 
 enum {
-  TK_NOTYPE = 256, 
-  TK_EQ,
-  TK_NUMBER
+    TK_NOTYPE = 256, 
+    TK_EQ, 
+    NUM, 
+    ADD, 
+    MINUS, 
+    MULTIPLY, 
+    DIVIDE, 
+    LBRACKET, 
+    RBRACKET, 
+    REG, 
+    HEX,
+    AND, 
+    OR, 
+    NEQ
 
   /* TODO: Add more token types */
 
@@ -25,15 +36,22 @@ static struct rule {
    */
 
   {" +", TK_NOTYPE},    // spaces
-  {"\\+", '+'},         // plus
+  {"\\+", ADD},         // plus
   {"==", TK_EQ},        // equal
-  {"0|[1-9][0-9]*", TK_NUMBER}, //数字儿
-  {"\\+", '+'},
-  {"-", '-'},
-  {"\\*", '*'},
-  {"\\/", '/'},
-  {"\\(", '('},
-  {"\\)", ')'},
+  {"0[xX][0-9a-fA-F]+", HEX},   // hex number
+  {"[0-9]+", NUM},      // numbers
+  {"\\-", MINUS},       // minus
+  {"\\*", MULTIPLY},    // multiply
+  {"\\/", DIVIDE},      // divide
+  {"\\(", LBRACKET},    // left bracket
+  {"\\)", RBRACKET},    // right bracket
+  {"\\$e[abc]x", REG},  // register
+  {"\\$e[bs]p", REG},
+  {"\\$e[sd]i", REG},
+  {"\\$eip", REG},
+  {"&&", AND},          // and
+  {"\\|\\|", OR},       // or
+  {"!=", NEQ}           // not equal
 };
 
 #define NR_REGEX (sizeof(rules) / sizeof(rules[0]) )
@@ -88,14 +106,37 @@ static bool make_token(char *e) {
          * of tokens, some extra actions should be performed.
          */
 
-        switch (rules[i].token_type) {
+         switch (rules[i].token_type) {
           case TK_NOTYPE:
             break;
-          case TK_EQ: 
-          case TK_NUMBER: 
-
+          case NUM:
+          case REG:
+          case HEX: 
+           for (i = 0; i < substr_len; i++)
+              tokens[nr_token].str[i] = substr_start[i];
+            tokens[nr_token].str[i] = '\0';
+            nr_token++;
+            break;
+          case ADD:
+          case MINUS:
+          case MULTIPLY:
+          case DIVIDE:
+          case LBRACKET:
+          case RBRACKET:
+            tokens[nr_token].str[0] = substr_start[0];
+            tokens[nr_token++].str[1] = '\0';
+            break;
+          case AND:
+          case OR:
+          case TK_EQ:
+          case NEQ:
+            tokens[nr_token].str[0] = substr_start[0];
+            tokens[nr_token].str[1] = substr_start[1];
+            tokens[nr_token++].str[2] = '\0';
+            break;
           default: TODO();
         }
+
       }
     }
 
