@@ -24,7 +24,6 @@ typedef struct {
     } gpr[8];
     struct 
     {
-      /* data */
       rtlreg_t eax, ecx, edx, ebx, esp, ebp, esi, edi;
     };
   };
