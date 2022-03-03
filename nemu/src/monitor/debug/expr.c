@@ -172,34 +172,63 @@ bool check_parentheses(int p, int q) {
 
 
 int findDominantOp(int p, int q) {
-    // printf("before find op, is_success:%d\n", *success);
-  int now_max_power = -1, now_max_index = -1;
-  int tot_parentheses = 0;
-  for(int i=l;i<=r;i++){
-    /*make sure the operator is not between lp and rp*/
-    if(tokens[i].type=='('){
-      tot_parentheses+=1;
+  int i = 0, j, cnt, op = 0, pos = -1;
+  for (i = p; i <= q; i++) {
+    if (tokens[i].type == TK_NUMBER)
       continue;
+    else if (tokens[i].type == '(') {
+      cnt = 0;
+      for (j = i + 1; j <= q; j++) {
+        if (tokens[j].type == ')') {
+          cnt++;
+          i += cnt;
+          break;
+        }
+        else {
+          cnt++;
+        }
+      }
     }
-    else if(tokens[i].type==')'){
-      tot_parentheses-=1;
-      continue;
-    }
-
-    /* NOTE: short circuit in C language!*/
-    if(tot_parentheses!=0) continue;
-    if(!is_operator(tokens[i])) continue;
-
-    // printf("now_index:%d\n",i);
-
-    int now_power = operator2priority(tokens[i]);
-    if(now_power>=now_max_power){
-      now_max_power=now_power;
-      now_max_index=i;
+    else {
+      // printf("hahhhha\n");
+      int opp;
+      switch (tokens[i].type)
+      {
+        case '+':
+          opp = 4;
+          break;
+        case '-': 
+          opp = 4;
+          break;
+        case '*': 
+          opp = 3;
+          break;
+        case '/':
+          opp = 3;
+          break;
+        case TK_EQ: 
+          opp = 7;
+          break;
+        case TK_NEQ:
+          opp = 7;
+          break;
+        case TK_AND: 
+          opp = 11;
+          break;
+        case TK_OR: 
+          opp = 12;
+          break;
+        default:
+          opp = 0;
+          break;
+      }
+      if (opp >= op) {
+        pos = i;
+        op = opp;
+      }
     }
   }
-  // printf("after find op, is_success:%d\n", *success);
-  return now_max_index;
+  return pos;
 }
 
 uint32_t eval(int p, int q) {
