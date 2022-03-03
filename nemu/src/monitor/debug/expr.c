@@ -263,9 +263,7 @@ uint32_t eval(int p, int q) {
         else {
           printf("error in TK_REG in eval()\n");
         }
-      default:
         assert(0);
-        break;
     }
   }
   else if(check_parentheses(p, q) == true) {
