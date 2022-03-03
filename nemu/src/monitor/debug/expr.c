@@ -27,7 +27,7 @@ static struct rule {
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // plus
   {"==", TK_EQ},        // equal
-  {"[0-9]+", TK_NUMBER}, //数字儿
+  {"0|[1-9][0-9]*", TK_NUMBER}, //数字儿
   {"\\+", '+'},
   {"\\-", '-'},
   {"\\*", '*'},
@@ -106,7 +106,7 @@ static bool make_token(char *e) {
               *(tokens[nr_token].str + substr_len) = '\0';
               break;
           }
-          nr_token++;
+          nr_token += 1;
           break;
         }
       }
