@@ -190,7 +190,7 @@ int findDominantOp(int p, int q) {
       }
     }
     else {
-      printf("hahhhha");
+      printf("hahhhha\n");
       int opp;
       switch (tokens[i].type)
       {
