@@ -111,9 +111,16 @@ static bool make_token(char *e) {
             strncpy(tokens[nr_token].str, substr_start, substr_len);
             *(tokens[nr_token].str + substr_len) = '\0';
             break;
+          case TK_HEX:
+            strncpy(tokens[nr_token].str, substr_start + 2, substr_len - 2); //跳过开头的0x
+            *(tokens[nr_token].str + substr_len - 2) = '\0';
+            break;
+          case TK_REG: 
+            strncpy(tokens[nr_token].str, substr_start + 1, substr_len - 1); //跳过开头的$
+            *(tokens[nr_token].str + substr_len - 1) = '\0';
           }
+          printf("Success record : nr_token = %d, dtype = %d, str = %s\n", nr_token, tokens[nr_token].type, tokens[nr_token].str);
           nr_token += 1;
-          
           break;
         }
       }
@@ -203,6 +210,15 @@ int findDominantOp(int p, int q) {
         case TK_EQ: 
           opp = 7;
           break;
+        case TK_NEQ:
+          opp = 7;
+          break;
+        case TK_AND: 
+          opp = 11;
+          break;
+        case TK_OR: 
+          opp = 12;
+          break;
         default:
           assert(0);
           break;
@@ -221,8 +237,36 @@ uint32_t eval(int p, int q) {
     return -1111;
   }
   else if(p == q) {
-    if (tokens[p].type == TK_NUMBER) {
-      return atoi(tokens[p].str);
+    int num;
+    switch (tokens[p].type)
+    {
+      case TK_NUMBER:
+        sscanf(tokens[p].str, "%d", &num);
+        return num;
+      case TK_HEX:
+        sscanf(tokens[p].str, "%x", &num);
+        return num;
+      case TK_REG: 
+        for(int i = 0; i < 8; i++) {
+          if(strcmp(tokens[p].str, regsl[i]) == 0) {
+            return reg_l(i);
+          }
+          if(strcmp(tokens[p].str, regsw[i]) == 0) {
+            return reg_w(i);
+          }
+          if(strcmp(tokens[p].str, regsb[i]) == 0) {
+            return reg_b(i);
+          }
+        }
+        if(strcmp(tokens[p].str, "eip") == 0) {
+          return cpu.eip;
+        }
+        else {
+          printf("error in TK_REG in eval()\n");
+        }
+      default:
+        assert(0);
+        break;
     }
   }
   else if(check_parentheses(p, q) == true) {
@@ -230,6 +274,27 @@ uint32_t eval(int p, int q) {
   }
   else {
     int op = findDominantOp(p, q);
+    vaddr_t addr;
+    int result;
+    switch (tokens[op].type)
+    {
+      case TK_NEGATIVE: 
+        return -eval(p + 1, q);
+        break;
+      case TK_DEREF: 
+        addr = eval(p + 1, q);
+        result = vaddr_read(addr, 4);
+        printf("adddr=%U(0X%X)---->value=%d(0x%08x\n", addr, addr, result, result);
+        return result;
+      case '!': 
+        result = eval(p + 1, q);
+        if(result != 0) {
+          return 0;
+        }
+        else {
+          return 1;
+        }
+    }
     uint32_t val1 = eval(p, op - 1);
     uint32_t val2 = eval(op + 1, q);
     switch(tokens[op].type) {
@@ -260,6 +325,24 @@ uint32_t expr(char *e, bool *success) {
   // TODO();
 
   // return 0;
+  if(tokens[0].type == '-') {
+    tokens[0].type = TK_NEGATIVE;
+  }
+  if(tokens[0].type == '*') {
+    tokens[0].type = TK_DEREF;
+  }
+  for(int i = 1; i < nr_token; i++) {
+    if(tokens[i].type == '-') {
+      if(tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')') {
+        tokens[i].type = TK_NEGATIVE;
+      }
+    }
+    if(tokens[i].type == '*') {
+      if(tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')') {
+        tokens[i].type = TK_DEREF;
+      }
+    }
+  }
   *success = true;
   return eval(0, nr_token - 1);
 }
