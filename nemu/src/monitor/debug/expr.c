@@ -88,26 +88,13 @@ static bool make_token(char *e) {
          * of tokens, some extra actions should be performed.
          */
 
-        // switch (rules[i].token_type) {
-        //   default: TODO();
-        // }
-        if(substr_len > 32) {
-          assert(0);
-        }
-        if(rules[i].token_type == TK_NOTYPE) {
-          //空格直接忽略
-          break; 
-        }
-        else {
-          tokens[nr_token].type = rules[i].token_type;
-          switch(rules[i].token_type) {
-            case TK_NUMBER:
-              strncpy(tokens[nr_token].str, substr_start, substr_len);
-              *(tokens[nr_token].str + substr_len) = '\0';
-              break;
-          }
-          nr_token += 1;
-          break;
+        switch (rules[i].token_type) {
+          case TK_NOTYPE:
+            break;
+          case TK_EQ: 
+          case TK_NUMBER: 
+
+          default: TODO();
         }
       }
     }
