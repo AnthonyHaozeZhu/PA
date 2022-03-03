@@ -100,7 +100,7 @@ static struct {
   /* TODO: Add more commands */
 
   { "si", "args:[N];exectue [N] instructions step by step", cmd_si}, //让程序单步执行 N 条指令后暂停执行, 当N没有给出时, 缺省为1
-  { "", "", } //打印寄存器状态
+  { "info", "Display the register status and the watchpoint information ", cmd_info} //打印寄存器状态
 };
 
 #define NR_CMD (sizeof(cmd_table) / sizeof(cmd_table[0]))
