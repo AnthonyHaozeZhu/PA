@@ -165,7 +165,7 @@ bool check_parentheses(int p, int q) {
 
 
 int findDominantOp(int p, int q) {
-  int i = 0, j, cnt, op = 0, opp, pos = -1;
+  int i = 0, j, cnt, op = 0, pos = -1;
   for (i = p; i <= q; i++) {
     if (tokens[i].type == TK_NUMBER)
       continue;
@@ -183,7 +183,35 @@ int findDominantOp(int p, int q) {
       }
     }
     else {
-      opp = priority(i);
+      int opp;
+  //     if (tokens[i].type == ADD || tokens[i].type == MINUS) return 4;
+  // else if (tokens[i].type == MULTIPLY || tokens[i].type == DIVIDE) return 3;
+  // else if (tokens[i].type == OR) return 12;
+  // else if (tokens[i].type == AND) return 11;
+  // else if (tokens[i].type == NEQ || tokens[i].type == TK_EQ) return 7;
+  // return 0;
+      //opp = priority(i);
+      switch (tokens[i].type)
+      {
+        case '+':
+          opp = 4;
+          break;
+        case '-': 
+          opp = 4;
+          break;
+        case '*': 
+          opp = 3;
+          break;
+        case '/':
+          opp = 3;
+          break;
+        case TK_EQ: 
+          opp = 7;
+          break;
+        default:
+          assert(0);
+          break;
+      }
       if (opp >= op) {
         pos = i;
         op = opp;
