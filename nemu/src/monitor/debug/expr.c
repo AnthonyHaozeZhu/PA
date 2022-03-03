@@ -137,7 +137,7 @@ static bool make_token(char *e) {
 
 //判断括号的匹配
 bool check_parentheses(int p, int q) {
-  if(p >= q) {
+  if(p > q) {
     //右括号少于左括号
     printf("error:p>=q in check_parntheses\n");
     return false;
