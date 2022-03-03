@@ -137,7 +137,7 @@ static bool make_token(char *e) {
 
 //判断括号的匹配
 bool check_parentheses(int p, int q) {
-  if(p > q) {
+  if(p >= q) {
     //右括号少于左括号
     printf("error:p>=q in check_parntheses\n");
     return false;
@@ -278,7 +278,7 @@ uint32_t eval(int p, int q) {
         return -eval(p + 1, q);
       case TK_DEREF: //指针求值
         // printf("1\n");
-        // printf(p);
+        printf(tokens[op].type);
         addr = eval(p + 1, q);
         printf("2\n");
         result = vaddr_read(addr, 4);
