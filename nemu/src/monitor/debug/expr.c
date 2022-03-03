@@ -233,86 +233,87 @@ int findDominantOp(int p, int q) {
 }
 
 uint32_t eval(int p, int q) {
-  // if(p > q) {
-  //   return -1111;
-  // }
-  // else if(p == q) {
-  //   int num;
-  //   switch (tokens[p].type)
-  //   {
-  //     case TK_NUMBER:
-  //       sscanf(tokens[p].str, "%d", &num);
-  //       return num;
-  //     case TK_HEX:
-  //       sscanf(tokens[p].str, "%x", &num);
-  //       return num;
-  //     case TK_REG: 
-  //       for(int i = 0; i < 8; i++) {
-  //         if(strcmp(tokens[p].str, regsl[i]) == 0) {
-  //           return reg_l(i);
-  //         }
-  //         if(strcmp(tokens[p].str, regsw[i]) == 0) {
-  //           return reg_w(i);
-  //         }
-  //         if(strcmp(tokens[p].str, regsb[i]) == 0) {
-  //           return reg_b(i);
-  //         }
-  //       }
-  //       if(strcmp(tokens[p].str, "eip") == 0) {
-  //         return cpu.eip;
-  //       }
-  //       else {
-  //         printf("error in TK_REG in eval()\n");
-  //       }
-  //     default:
-  //       assert(0);
-  //       break;
-  //   }
-  // }
-  // else if(check_parentheses(p, q) == true) {
-  //   return eval(p + 1, q - 1);
-  // }
-  // else {
-  //   int op = findDominantOp(p, q);
-  //   vaddr_t addr;
-  //   int result;
-  //   switch (tokens[op].type)
-  //   {
-  //     case TK_NEGATIVE: 
-  //       return -eval(p + 1, q);
-  //       break;
-  //     case TK_DEREF: 
-  //       addr = eval(p + 1, q);
-  //       result = vaddr_read(addr, 4);
-  //       printf("adddr=%u(0x%x)---->value=%d(0x%08x\n", addr, addr, result, result);
-  //       return result;
-  //     case '!': 
-  //       result = eval(p + 1, q);
-  //       if(result != 0) {
-  //         return 0;
-  //       }
-  //       else {
-  //         return 1;
-  //       }
-  //   }
-  //   uint32_t val1 = eval(p, op - 1);
-  //   uint32_t val2 = eval(op + 1, q);
-  //   switch(tokens[op].type) {
-  //     case '+':
-  //       return val1 + val2;
-  //     case '-': 
-  //       return val1 - val2;
-  //     case '/':
-  //       return val1 / val2;
-  //     case '*':
-  //       return val1 * val2;
-  //     case TK_EQ:
-  //       return val1 == val2;
-  //     default:
-  //       assert(0);
-  //   }
-  // }
-  // return 1;
+  if(p > q) {
+    printf("error : p>q in eval, p = %d, q = %d\n", p, q);
+    assert(0);
+  }
+  else if(p == q) {
+    int num;
+    switch (tokens[p].type)
+    {
+      case TK_NUMBER:
+        sscanf(tokens[p].str, "%d", &num);
+        return num;
+      case TK_HEX:
+        sscanf(tokens[p].str, "%x", &num);
+        return num;
+      case TK_REG: 
+        for(int i = 0; i < 8; i++) {
+          if(strcmp(tokens[p].str, regsl[i]) == 0) {
+            return reg_l(i);
+          }
+          if(strcmp(tokens[p].str, regsw[i]) == 0) {
+            return reg_w(i);
+          }
+          if(strcmp(tokens[p].str, regsb[i]) == 0) {
+            return reg_b(i);
+          }
+        }
+        if(strcmp(tokens[p].str, "eip") == 0) {
+          return cpu.eip;
+        }
+        else {
+          printf("error in TK_REG in eval()\n");
+        }
+      default:
+        assert(0);
+        break;
+    }
+  }
+  else if(check_parentheses(p, q) == true) {
+    return eval(p + 1, q - 1);
+  }
+  else {
+    int op = findDominantOp(p, q);
+    vaddr_t addr;
+    int result;
+    switch (tokens[op].type)
+    {
+      case TK_NEGATIVE: 
+        return -eval(p + 1, q);
+        break;
+      case TK_DEREF: 
+        addr = eval(p + 1, q);
+        result = vaddr_read(addr, 4);
+        printf("adddr=%u(0x%x)---->value=%d(0x%08x\n", addr, addr, result, result);
+        return result;
+      case '!': 
+        result = eval(p + 1, q);
+        if(result != 0) {
+          return 0;
+        }
+        else {
+          return 1;
+        }
+    }
+    uint32_t val1 = eval(p, op - 1);
+    uint32_t val2 = eval(op + 1, q);
+    switch(tokens[op].type) {
+      case '+':
+        return val1 + val2;
+      case '-': 
+        return val1 - val2;
+      case '/':
+        return val1 / val2;
+      case '*':
+        return val1 * val2;
+      case TK_EQ:
+        return val1 == val2;
+      default:
+        assert(0);
+    }
+  }
+  return 1;
 }
 
 uint32_t expr(char *e, bool *success) {
