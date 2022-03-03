@@ -124,7 +124,7 @@ static struct {
 
   { "si", "args:[N]; exectue [N] instructions step by step", cmd_si}, //让程序单步执行 N 条指令后暂停执行, 当N没有给出时, 缺省为1
   { "info", "args:r/w;print information about register or watch point ", cmd_info}, //打印寄存器状态
-  { "", "", } //内存扫描
+  { "x", "x [N] [EXPR];sacn the memory", cmd_x } //内存扫描
 };
 
 #define NR_CMD (sizeof(cmd_table) / sizeof(cmd_table[0]))
