@@ -57,13 +57,13 @@ static int cmd_si(char *args) {
 static int cmd_info(char *args) {
   char s;
   if(args == NULL) {
-    printf("args error in cmd_info\n");
+    printf("args error in cmd_info (miss args)\n");
     return 0;
   }
   int temp = sscanf(args, "%c", &s);
   if(temp <= 0) {
     //解析失败
-    printf("args error in cmd_info (miss args)\n");
+    printf("args error in cmd_info\n");
     return 0;
   }
   if(temp == 'r') {
