@@ -190,6 +190,7 @@ int findDominantOp(int p, int q) {
       }
     }
     else {
+      printf("hahhhha");
       int opp;
       switch (tokens[i].type)
       {
@@ -277,7 +278,7 @@ uint32_t eval(int p, int q) {
       case TK_NEGATIVE: //负号
         return -eval(p + 1, q);
       case TK_DEREF: //指针求值
-        printf("1\n");
+        // printf("1\n");
         printf(tokens[op].type);
         addr = eval(p + 1, q);
         printf("2\n");
