@@ -273,11 +273,11 @@ uint32_t eval(int p, int q) {
     int op = findDominantOp(p, q);
     vaddr_t addr;
     int result;
-    switch (tokens[op].type)
-    {
-      case TK_NEGATIVE: 
+    switch (tokens[op].type) {
+      case TK_NEGATIVE: //负号
         return -eval(p + 1, q);
-      case TK_DEREF: 
+      case TK_DEREF: //指针求值
+        printf("haahahhahah");
         addr = eval(p + 1, q);
         result = vaddr_read(addr, 4);
         printf("adddr=%u(0x%x)---->value=%d(0x%08x\n", addr, addr, result, result);
