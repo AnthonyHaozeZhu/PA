@@ -33,9 +33,13 @@ static struct rule {
   {" +", TK_NOTYPE},    // spaces
   {"0x[1-9A-Fa-f][0-9A-Fa-f]*", TK_HEX},
   {"0|[1-9][0-9]*", TK_NUMBER}, //数字
-  {"\\+", '+'},         // plus
-  {"==", TK_EQ},        // equal
-  {"\\+", '+'},
+  {"\\$(eax|ecx|edx|ebx|esp|ebp|esi|edi|eip|ax|cx|dx|bx|sp|bp|si|di|al|cl|dl|bl|ah|ch|dh|bh", TK_REG},
+  {"==", TK_EQ},
+  {"!=", TK_NEQ},
+  {"&&", TK_AND},
+  {"\\|\\|", TK_OR},
+  {"!", '!'},
+  {"\\+", '+'},         // plus        // equal
   {"-", '-'},
   {"\\*", '*'},
   {"\\/", '/'},
@@ -162,54 +166,36 @@ bool check_parentheses(int p, int q) {
 
 
 
-int findDominantOp(int p, int q) {
-  int i = 0, j, cnt, op = 0, pos = -1;
-  for (i = p; i <= q; i++) {
-    if (tokens[i].type == TK_NUMBER)
+int findDominantOp(int l, int r) {
+  
+  // printf("before find op, is_success:%d\n", *success);
+  int now_max_power = -1, now_max_index = -1;
+  int tot_parentheses = 0;
+  for(int i=l;i<=r;i++){
+    /*make sure the operator is not between lp and rp*/
+    if(tokens[i].type=='('){
+      tot_parentheses+=1;
       continue;
-    else if (tokens[i].type == '(') {
-      cnt = 0;
-      for (j = i + 1; j <= q; j++) {
-        if (tokens[j].type == ')') {
-          cnt++;
-          i += cnt;
-          break;
-        }
-        else {
-          cnt++;
-        }
-      }
     }
-    else {
-      int opp;
-      switch (tokens[i].type)
-      {
-        case '+':
-          opp = 4;
-          break;
-        case '-': 
-          opp = 4;
-          break;
-        case '*': 
-          opp = 3;
-          break;
-        case '/':
-          opp = 3;
-          break;
-        case TK_EQ: 
-          opp = 7;
-          break;
-        default:
-          assert(0);
-          break;
-      }
-      if (opp >= op) {
-        pos = i;
-        op = opp;
-      }
+    else if(tokens[i].type==')'){
+      tot_parentheses-=1;
+      continue;
+    }
+
+    /* NOTE: short circuit in C language!*/
+    if(tot_parentheses!=0) continue;
+    if(!is_operator(tokens[i])) continue;
+
+    // printf("now_index:%d\n",i);
+
+    int now_power = operator2priority(tokens[i]);
+    if(now_power>=now_max_power){
+      now_max_power=now_power;
+      now_max_index=i;
     }
   }
-  return pos;
+  // printf("after find op, is_success:%d\n", *success);
+  return now_max_index;
 }
 
 uint32_t eval(int p, int q) {
