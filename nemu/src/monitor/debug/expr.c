@@ -184,7 +184,7 @@ int findDominantOp(int l, int r) {
 
     /* NOTE: short circuit in C language!*/
     if(tot_parentheses!=0) continue;
-    if(!is_operator(tokens[i])) continue;
+    if(operator2priority(tokens[i]) > 15) continue;
 
     // printf("now_index:%d\n",i);
 
