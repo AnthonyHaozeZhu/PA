@@ -315,21 +315,33 @@ uint32_t eval(int p, int q) {
 }
 
 uint32_t expr(char *e, bool *success) {
-   if (!make_token(e)) {
+  if (!make_token(e)) {
     *success = false;
     return 0;
   }
-  int i;
-  for (i = 0; i < nr_token; i++) {
-    //printf("token%d = %s\n", i, tokens[i].str);
-  }
 
   /* TODO: Insert codes to evaluate the expression. */
-  if (!judge_exp())
-    *success = false;
-  else
-    return eval(0, nr_token - 1);
+  // TODO();
 
-  //TODO();
-  return 0;
+  // return 0;
+  if(tokens[0].type == '-') {
+    tokens[0].type = TK_NEGATIVE;
+  }
+  if(tokens[0].type == '*') {
+    tokens[0].type = TK_DEREF;
+  }
+  for(int i = 1; i < nr_token; i++) {
+    if(tokens[i].type == '-') {
+      if(tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')') {
+        tokens[i].type = TK_NEGATIVE;
+      }
+    }
+    if(tokens[i].type == '*') {
+      if(tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')') {
+        tokens[i].type = TK_DEREF;
+      }
+    }
+  }
+  *success = true;
+  return eval(0, nr_token - 1);
 }
