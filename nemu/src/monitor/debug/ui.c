@@ -63,7 +63,7 @@ static int cmd_info(char *args) {
   int temp = sscanf(args, "%c", &s);
   if(temp <= 0) {
     //解析失败
-    printf("args error in cmd_info\n");
+    printf("args error in cmd_info (miss args)\n");
     return 0;
   }
   if(temp == 'r') {
