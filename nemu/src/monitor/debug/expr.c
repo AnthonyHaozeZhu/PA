@@ -87,15 +87,6 @@ static bool make_token(char *e) {
          * to record the token in the array `tokens'. For certain types
          * of tokens, some extra actions should be performed.
          */
-
-        // switch (rules[i].token_type) {
-        //   case TK_NOTYPE:
-        //     break;
-        //   case TK_EQ: 
-        //   case TK_NUMBER: 
-
-        //   default: TODO();
-        // }
         if(substr_len > 32) {
           assert(0);
         }
@@ -184,13 +175,6 @@ int findDominantOp(int p, int q) {
     }
     else {
       int opp;
-  //     if (tokens[i].type == ADD || tokens[i].type == MINUS) return 4;
-  // else if (tokens[i].type == MULTIPLY || tokens[i].type == DIVIDE) return 3;
-  // else if (tokens[i].type == OR) return 12;
-  // else if (tokens[i].type == AND) return 11;
-  // else if (tokens[i].type == NEQ || tokens[i].type == TK_EQ) return 7;
-  // return 0;
-      //opp = priority(i);
       switch (tokens[i].type)
       {
         case '+':
@@ -218,7 +202,6 @@ int findDominantOp(int p, int q) {
       }
     }
   }
-//  printf("op = %d, pos = %d\n",  op, pos);
   return pos;
 }
 
