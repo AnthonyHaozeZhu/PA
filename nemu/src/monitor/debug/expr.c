@@ -284,7 +284,7 @@ uint32_t eval(int p, int q) {
       case TK_DEREF: 
         addr = eval(p + 1, q);
         result = vaddr_read(addr, 4);
-        printf("adddr=%U(0X%X)---->value=%d(0x%08x\n", addr, addr, result, result);
+        printf("adddr=%u(0x%x)---->value=%d(0x%08x\n", addr, addr, result, result);
         return result;
       case '!': 
         result = eval(p + 1, q);
