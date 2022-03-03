@@ -66,7 +66,7 @@ static int cmd_info(char *args) {
     printf("args error in cmd_info\n");
     return 0;
   }
-  if(temp == 'r') {
+  if(s == 'r') {
     //打印寄存器
     //32bit
     for(int i = 0; i < 8; i++) {
