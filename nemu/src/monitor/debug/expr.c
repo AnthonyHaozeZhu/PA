@@ -8,11 +8,15 @@
 
 enum {
   TK_NOTYPE = 256, 
-  TK_OR, TK_AND,
-  TK_EQ, TK_NEQ, TK_LOGAND, TK_LOGOR, TK_NOT,
-  NUM_10, NUM_16,
-  REG, TK_GETVAL
-
+  TK_EQ,
+  TK_NUMBER,
+  TK_HEX,
+  TK_REG,
+  TK_NEQ,
+  TK_AND,
+  TK_OR,
+  TK_NEGATIVE,
+  TK_DEREF
   /* TODO: Add more token types */
 
 };
@@ -26,23 +30,21 @@ static struct rule {
    * Pay attention to the precedence level of different rules.
    */
 
-  {" +", TK_NOTYPE},     // spaces
-  {"!", TK_NOT},         // log-not
-  {"\\*", '*'},          // multi/getval
-  {"\\/", '/'},          // div
-  {"\\+", '+'},          // plus
-  {"\\-", '-'},          // minus
-  {"\\|\\|", TK_LOGOR},      // log-or
-  {"&&", TK_LOGAND},         // log-and
-  {"\\|", TK_OR},        // calc-or
-  {"&", TK_AND},         // calc-and
-  {"==", TK_EQ},         // equal
-  {"!=", TK_NEQ},        // not-equal
-  {"\\$[eE][0-9a-zA-Z]{2}", REG}, // registers
-  {"0[xX][a-fA-F0-9]+", NUM_16}, // num with radix 16
-  {"[0-9]|([1-9][0-9]*)", NUM_10}, // num with radix 10
-  {"\\(", '('},          // l-parentheses
-  {"\\)", ')'},          // r-patentheses
+  {" +", TK_NOTYPE},    // spaces
+  {"0x[1-9A-Fa-f][0-9A-Fa-f]*", TK_HEX},
+  {"0|[1-9][0-9]*", TK_NUMBER}, //数字
+  {"\\$(eax|ecx|edx|ebx|esp|ebp|esi|edi|eip|ax|cx|dx|bx|sp|bp|si|di|al|cl|dl|bl|ah|ch|dh|bh", TK_REG},
+  {"==", TK_EQ},
+  {"!=", TK_NEQ},
+  {"&&", TK_AND},
+  {"\\|\\|", TK_OR},
+  {"!", '!'},
+  {"\\+", '+'},         // plus        // equal
+  {"-", '-'},
+  {"\\*", '*'},
+  {"\\/", '/'},
+  {"\\(", '('},
+  {"\\)", ')'},
 };
 
 #define NR_REGEX (sizeof(rules) / sizeof(rules[0]) )
@@ -74,46 +76,6 @@ typedef struct token {
 Token tokens[32];
 int nr_token;
 
-static uint32_t operator2priority(Token tk){
-  switch(tk.type){
-    case TK_GETVAL:
-    case TK_NOT:{
-      return 2;
-    }
-    case '*':
-    case '/':{
-      return 3;
-    }
-    case '+':
-    case '-':{
-      return 4;
-    }
-    case TK_EQ:
-    case TK_NEQ:{
-      return 7;
-    }
-    case TK_AND:{
-      return 8;
-    }
-    case TK_OR:{
-      return 10;
-    }
-    case TK_LOGAND:{
-      return 11;
-    }
-    case TK_LOGOR:{
-      return 12;
-    }
-    default:{
-      return 16;
-    }
-  }
-}
-
-static bool is_operator(Token tk){
-  return operator2priority(tk)<=15;
-}
-
 static bool make_token(char *e) {
   int position = 0;
   int i;
@@ -136,23 +98,24 @@ static bool make_token(char *e) {
          * to record the token in the array `tokens'. For certain types
          * of tokens, some extra actions should be performed.
          */
-
-        switch (rules[i].token_type) {
-          case TK_NOTYPE: break;
-          case REG:
-          case NUM_10:
-          case NUM_16:{
-            for(int i=0;i<substr_len;i++){
-              tokens[nr_token].str[i] = substr_start[i];
-            }
-            tokens[nr_token].str[substr_len] = '\0';
-          }
-          default: {
-            tokens[nr_token].type = rules[i].token_type;
-            nr_token++;
-          }
+        if(substr_len > 32) {
+          assert(0);
         }
-        break;
+        if(rules[i].token_type == TK_NOTYPE) {
+          break;
+        }
+        else {
+          tokens[nr_token].type = rules[i].token_type;
+          switch (rules[i].token_type) {
+          case TK_NUMBER:
+            strncpy(tokens[nr_token].str, substr_start, substr_len);
+            *(tokens[nr_token].str + substr_len) = '\0';
+            break;
+          }
+          nr_token += 1;
+          
+          break;
+        }
       }
     }
 
@@ -161,175 +124,130 @@ static bool make_token(char *e) {
       return false;
     }
   }
-  for(int i=0;i<nr_token;i++){
-    if(tokens[i].type=='*'&&(is_operator(tokens[i-1])||i==0)){
-      tokens[i].type = TK_GETVAL;
-    }
-  }
 
   return true;
 }
 
-bool check_pre_valid(int l, int r){
-  int tot = 0;
-  for(int i=l;i<=r;i++){
-    if(tokens[i].type=='('){
-      tot+=1;
-    }
-    else if(tokens[i].type==')'){
-      tot-=1;
-    }
-    if(tot<0){
-      return false;
-    }
-  }
-  return tot==0;
-}
 
-bool check_parentheses(int l, int r, bool *success){
-  if(!check_pre_valid(l,r)){
-    *success=false;
-    return *success;
+
+//判断括号的匹配
+bool check_parentheses(int p, int q) {
+  if(p >= q) {
+    //右括号少于左括号
+    printf("error:p>=q in check_parntheses\n");
+    return false;
   }
-  if(tokens[l].type=='('&&tokens[r].type==')'){
-    if(check_pre_valid(l+1,r-1)){
-      return true;
+  if(tokens[p].type != '(' || tokens[q].type != ')'){
+    //括号不匹配
+    return false;
+  }
+  int cnt = 0; //记录当前未匹配的左括号的数目
+  for(int curr = p + 1; curr < 1; curr++) {
+    if(tokens[curr].type == '(') {
+      cnt++;
+    }
+    if(tokens[curr].type == ')') {
+      if(cnt != 0) {
+        cnt--;
+      }
+      else {
+        //左右括号不匹配
+        return false;
+      }
     }
   }
-  *success=true;
-  return false;
-}
+  if(cnt == 0) {
+    return true;
+  }
+  else {
+    return false;
+  }
+} 
 
-static int find_operator(int l, int r, bool *success){
-  // printf("before find op, is_success:%d\n", *success);
-  int now_max_power = -1, now_max_index = -1;
-  int tot_parentheses = 0;
-  for(int i=l;i<=r;i++){
-    /*make sure the operator is not between lp and rp*/
-    if(tokens[i].type=='('){
-      tot_parentheses+=1;
+
+
+int findDominantOp(int p, int q) {
+  int i = 0, j, cnt, op = 0, pos = -1;
+  for (i = p; i <= q; i++) {
+    if (tokens[i].type == TK_NUMBER)
       continue;
+    else if (tokens[i].type == '(') {
+      cnt = 0;
+      for (j = i + 1; j <= q; j++) {
+        if (tokens[j].type == ')') {
+          cnt++;
+          i += cnt;
+          break;
+        }
+        else {
+          cnt++;
+        }
+      }
     }
-    else if(tokens[i].type==')'){
-      tot_parentheses-=1;
-      continue;
-    }
-
-    /* NOTE: short circuit in C language!*/
-    if(tot_parentheses!=0) continue;
-    if(!is_operator(tokens[i])) continue;
-
-    // printf("now_index:%d\n",i);
-
-    int now_power = operator2priority(tokens[i]);
-    if(now_power>=now_max_power){
-      now_max_power=now_power;
-      now_max_index=i;
+    else {
+      int opp;
+      switch (tokens[i].type)
+      {
+        case '+':
+          opp = 4;
+          break;
+        case '-': 
+          opp = 4;
+          break;
+        case '*': 
+          opp = 3;
+          break;
+        case '/':
+          opp = 3;
+          break;
+        case TK_EQ: 
+          opp = 7;
+          break;
+        default:
+          assert(0);
+          break;
+      }
+      if (opp >= op) {
+        pos = i;
+        op = opp;
+      }
     }
   }
-  // printf("after find op, is_success:%d\n", *success);
-  return now_max_index;
+  return pos;
 }
 
-static uint32_t eval(int l, int r, bool *success){
-  if(l>r){
-    *success=false;
-    return 0;
+uint32_t eval(int p, int q) {
+  if(p > q) {
+    return -1111;
   }
-  if(l==r){
-    *success=true;
-    switch(tokens[l].type){
-      case NUM_10:
-      case NUM_16:{
-        return strtoul(tokens[l].str,NULL,0);
-      }
-      case REG:{
-        // printf("REG_NAME:%s\n", &tokens[l].str[1]);
-        if(strcmp(&tokens[l].str[1],"eip")==0) return cpu.eip;
-        for(int i=0;i<8;i++){
-          if(strcmp(&tokens[l].str[1],reg_name(i,4))==0) return reg_l(i);
-        }
-        printf("please check ur register's name..!\n");
-      }
-      default:{
-        *success=false;
-        return 0;
-      }
+  else if(p == q) {
+    if (tokens[p].type == TK_NUMBER) {
+      return atoi(tokens[p].str);
     }
   }
-  else if(check_parentheses(l, r, success)){
-    // printf("%d\n",*success);
-    return eval(l+1,r-1,success);
+  else if(check_parentheses(p, q) == true) {
+    return eval(p + 1, q - 1);
   }
-  else{
-    // printf("%d\n",*success);
-    int opIndex = find_operator(l,r,success);
-    // printf("opIndex:%d\n",opIndex);
-    uint32_t val1 = 0;
-    val1=eval(opIndex+1,r,success);
-    if(tokens[opIndex].type==TK_NOT){
-      if(*success){
-        return !val1;
-      }
-      else{
-        return 0;
-      }
-    }
-    else if(tokens[opIndex].type==TK_GETVAL){
-      return vaddr_read(val1,4);
-    }
-    uint32_t val2 = 0;
-    val2 = eval(l,opIndex-1,success);
-    // printf("%d %d %d\n", val1, val2, *success);
-    if(!*success){
-      return 0;
-    }
-    switch(tokens[opIndex].type){
-      // printf("%d %d\n", val1, val2);
-      case '+':{
-        return val2+val1;
-      }
-      case '-':{
-        if(val2>val1) return val2-val1;
-        else{
-          printf("cuz this is a unsigned number,so the result might be wrong literally..!\n");
-          return val2-val1;
-        }
-      }
-      case '*':{
-        return val2*val1;
-      }
-      case '/':{
-        if(val1==0){
-          printf("divide 0 error..!\n");
-          *success=false;
-          return 0;
-        }
-        return val2/val1;
-      }
-      case TK_LOGAND:{
-        return val1&&val2;
-      }
-      case TK_LOGOR:{
-        return val1||val2;
-      }
-      case TK_EQ:{
-        return val1==val2;
-      }
-      case TK_NEQ:{
-        return val1!=val2;
-      }
-      case TK_AND:{
-        return val1&val2;
-      }
-      case TK_OR:{
-        return val1|val2;
-      }
-      default:{
+  else {
+    int op = findDominantOp(p, q);
+    uint32_t val1 = eval(p, op - 1);
+    uint32_t val2 = eval(op + 1, q);
+    switch(tokens[op].type) {
+      case '+':
+        return val1 + val2;
+      case '-': 
+        return val1 - val2;
+      case '/':
+        return val1 / val2;
+      case '*':
+        return val1 * val2;
+      case TK_EQ:
+        return val1 == val2;
+      default:
         assert(0);
-      }
     }
   }
+  return 1;
 }
 
 uint32_t expr(char *e, bool *success) {
@@ -339,7 +257,9 @@ uint32_t expr(char *e, bool *success) {
   }
 
   /* TODO: Insert codes to evaluate the expression. */
-  // printf("before calc expr is_success:%d\n", *success);
-  // printf("l:%d r:%d\n", 0, nr_token-1);
-  return eval(0,nr_token-1,success);
+  // TODO();
+
+  // return 0;
+  *success = true;
+  return eval(0, nr_token - 1);
 }
