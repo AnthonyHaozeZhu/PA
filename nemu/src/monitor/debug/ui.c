@@ -58,6 +58,7 @@ static int cmd_info(char *args) {
   char s;
   if(args == NULL) {
     printf("args error in cmd_info\n");
+    return 0;
   }
   int temp = sscanf(args, "%c", &s);
   if(temp <= 0) {
