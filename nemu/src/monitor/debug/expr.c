@@ -126,6 +126,108 @@ static bool make_token(char *e) {
   return true;
 }
 
+
+
+//判断括号的匹配
+bool check_parentheses(int p, int q) {
+  if(p >= q) {
+    //右括号少于左括号
+    printf('error:p>=q in check_parntheses\n');
+    return false;
+  }
+  if(tokens[p].type != '(' || tokens[q].type != ')'){
+    //括号不匹配
+    return false;
+  }
+  int cnt = 0; //记录当前未匹配的左括号的数目
+  for(int curr = p + 1; curr < 1; curr++) {
+    if(tokens[curr].type == '(') {
+      cnt++;
+    }
+    if(tokens[curr].type == ')') {
+      if(cnt != 0) {
+        cnt--;
+      }
+      else {
+        //左右括号不匹配
+        return false;
+      }
+    }
+  }
+  if(cnt == 0) {
+    return true;
+  }
+  else {
+    return false;
+  }
+} 
+
+
+
+int findDominantOp(int p, int q) {
+  int i = 0, j, cnt, op = 0, opp, pos = -1;
+  for (i = p; i <= q; i++) {
+    if (tokens[i].type == TK_NUMBER)
+      continue;
+    else if (tokens[i].type == '(') {
+      cnt = 0;
+      for (j = i + 1; j <= q; j++) {
+        if (tokens[j].type == ')') {
+          cnt++;
+          i += cnt;
+          break;
+        }
+        else {
+          cnt++;
+        }
+      }
+    }
+    else {
+      opp = priority(i);
+      if (opp >= op) {
+        pos = i;
+        op = opp;
+      }
+    }
+  }
+//  printf("op = %d, pos = %d\n",  op, pos);
+  return pos;
+}
+
+uint32_t eval(int p, int q) {
+  if(p > q) {
+    return -1111;
+  }
+  else if(p == q) {
+    if (tokens[p].type == TK_NUMBER) {
+      return atoi(tokens[p].str);
+    }
+  }
+  else if(check_parentheses(p, q) == true) {
+    return eval(p + 1, q - 1);
+  }
+  else {
+    int op = findDominantOp(p, q);
+    uint32_t val1 = eval(p, op - 1);
+    uint32_t val2 = eval(op + 1, q);
+    switch(tokens[op].type) {
+      case '+':
+        return val1 + val2;
+      case '-': 
+        return val1 - val2;
+      case '/':
+        return val1 / val2;
+      case '*':
+        return val1 * val2;
+      case TK_EQ:
+        return val1 == val2;
+      default:
+        assert(0);
+    }
+  }
+  return 1;
+}
+
 uint32_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
@@ -133,7 +235,9 @@ uint32_t expr(char *e, bool *success) {
   }
 
   /* TODO: Insert codes to evaluate the expression. */
-  TODO();
+  // TODO();
 
-  return 0;
+  // return 0;
+  *success = true;
+  return eval(0, nr_token - 1);
 }
