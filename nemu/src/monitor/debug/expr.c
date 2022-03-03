@@ -137,7 +137,7 @@ static bool make_token(char *e) {
 
 //判断括号的匹配
 bool check_parentheses(int p, int q) {
-  if(p > q) {
+  if(p >= q) {
     //右括号少于左括号
     printf("error:p>=q in check_parntheses\n");
     return false;
@@ -232,10 +232,10 @@ int findDominantOp(int p, int q) {
 }
 
 uint32_t eval(int p, int q) {
-  // if(p > q) {
-    // printf("error:p>q in eval, p = %d, q = %d\n", p, q);
-    // assert(0);
-  // }
+  if(p > q) {
+    printf("error:p>q in eval, p = %d, q = %d\n", p, q);
+    assert(0);
+  }
   if(p == q) {
     int num;
     switch (tokens[p].type)
