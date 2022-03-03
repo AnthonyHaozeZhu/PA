@@ -120,8 +120,8 @@ static int cmd_p(char *args) {
   }
   else {
     printf("the value of expr is:%d\n", temp);
-    return 0;
   }
+  return 0;
 }
 
 static struct {
