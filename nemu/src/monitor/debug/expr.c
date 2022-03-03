@@ -278,7 +278,7 @@ uint32_t eval(int p, int q) {
         return -eval(p + 1, q);
       case TK_DEREF: //指针求值
         printf("1\n");
-        printf(p);
+        // printf(p);
         addr = eval(p + 1, q);
         printf("2\n");
         result = vaddr_read(addr, 4);
