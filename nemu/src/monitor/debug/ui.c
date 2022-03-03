@@ -111,6 +111,19 @@ static int cmd_x(char *args) {
   return 0;
 }
 
+static int cmd_p(char *args) {
+  //表达式求值
+  bool is_success;
+  int temp = expr(args, &is_success);
+  if(is_success == false) {
+    printf("error in expr()\n");
+  }
+  else {
+    printf("the value of expr is:%d\n", temp);
+    return 0;
+  }
+}
+
 static struct {
   char *name;
   char *description;
@@ -124,7 +137,8 @@ static struct {
 
   { "si", "args:[N]; exectue [N] instructions step by step", cmd_si}, //让程序单步执行 N 条指令后暂停执行, 当N没有给出时, 缺省为1
   { "info", "args:r/w;print information about register or watch point ", cmd_info}, //打印寄存器状态
-  { "x", "x [N] [EXPR];sacn the memory", cmd_x } //内存扫描
+  { "x", "x [N] [EXPR];sacn the memory", cmd_x }, //内存扫描
+  { "p", "expr", cmd_p}, //表达式
 };
 
 #define NR_CMD (sizeof(cmd_table) / sizeof(cmd_table[0]))
