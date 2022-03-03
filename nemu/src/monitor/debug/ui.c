@@ -54,6 +54,40 @@ static int cmd_si(char *args) {
   return 0;
 }
 
+static int cmd_info(char *args) {
+  char s;
+  if(args == NULL) {
+    printf("args error in cmd_info\n");
+  }
+  int temp = sscanf(args, "%c", &s);
+  if(temp <= 0) {
+    //解析失败
+    printf("args error in cmd_info\n");
+    return 0;
+  }
+  if(temp == 'r') {
+    //打印寄存器
+    //32bit
+    for(int i = 0; i < 8; i++) {
+      printf("%s  0x%x\n", regsl[i], reg_l(i));
+    }
+    printf("eip  0x%x\n", cpu.eip);
+    //16bit
+    for(int i = 0; i < 8; i++) {
+      printf("%s  0x%x\n", regsw[i], reg_w(i));
+    }
+    //8bit
+    for(int i = 0; i < 8; i++)
+    {
+      printf("%s  0x%x\n", regsb[i], reg_b(i));
+    }
+    return 0;
+  }
+  //如果产生错误
+  printf("args error in cmd_infp\n");
+  return 0;
+}
+
 static struct {
   char *name;
   char *description;
@@ -65,8 +99,8 @@ static struct {
 
   /* TODO: Add more commands */
 
-  { "si", "args:[N];exectue [N] instructions step by step", cmd_si},
-
+  { "si", "args:[N];exectue [N] instructions step by step", cmd_si}, //让程序单步执行 N 条指令后暂停执行, 当N没有给出时, 缺省为1
+  { "", "", } //打印寄存器状态
 };
 
 #define NR_CMD (sizeof(cmd_table) / sizeof(cmd_table[0]))
