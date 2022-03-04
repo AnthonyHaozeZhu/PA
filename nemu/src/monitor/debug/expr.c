@@ -173,31 +173,36 @@ bool check_parentheses(int p, int q) {
 
 int findDominantOp(int p, int q) {
   int level=0;
-  int pos[5]={-1,-1,-1,-1,-1};
-  int i=p;
-  for(;i<q;i++){
-     if(level==0){
-         if(tokens[i].type==TK_AND||tokens[i].type==TK_OR){
-              pos[0]=i;
-          }
-         if(tokens[i].type==TK_EQ||tokens[i].type==TK_NEQ){
-              pos[1]=i;
-          } 
-         if(tokens[i].type=='+'||tokens[i].type=='-'){
-              pos[2]=i;
-          }
-         if(tokens[i].type=='*'||tokens[i].type=='/'){
-              pos[3]=i;
-          }
-        if(tokens[i].type==TK_NEGATIVE||tokens[i].type==TK_DEREF||tokens[i].type=='!'){
-              pos[4]=i;
-          }
-     }
-     if(tokens[i].type=='(') level++;
-     if(tokens[i].type==')') level--;
+  int pos[5]={-1, -1, -1, -1, -1};
+  for(int i = p; i < q; i++){
+     if(level == 0) {
+        if(tokens[i].type == TK_AND || tokens[i].type == TK_OR) {
+          pos[0] = i;
+        }
+        if(tokens[i].type == TK_EQ || tokens[i].type == TK_NEQ) {
+          pos[1] = i;
+        }
+        if(tokens[i].type == '+' || tokens[i].type == '-') {
+          pos[2] = i;
+        }
+        if(tokens[i].type == '*' || tokens[i].type == '/') {
+          pos[3] = i;
+        }
+        if(tokens[i].type == TK_NEGATIVE || tokens[i].type == TK_DEREF || tokens[i].type == '!') {
+          pos[4] = i;
+        }
+      }
+      if(tokens[i].type=='(') {
+        level++;
+      }
+      if(tokens[i].type==')') {
+        level--;
+      }
   }
-  for(i=0;i<5;i++){
-    if(pos[i]!=-1) return pos[i];
+  for(int i = 0; i < 5; i++) {
+    if(pos[i] != -1) {
+      return pos[i];
+    }
   }
   printf("error in findDominantOp\n");
   printf("[p=%d,q=%d]\n",p,q);
