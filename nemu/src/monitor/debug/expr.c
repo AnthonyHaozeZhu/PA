@@ -231,33 +231,6 @@ int findDominantOp(int p, int q) {
   return pos;
 }
 
-int hexTodec(char *a)
-{
-    int len = strlen(a);
-    int sum = 0;
-    for (int i = 0;i < len;i++)
-    {
-        if(a[i] >= 'A' && a[i] <= 'F')
-        {
-            a[i] = a[i] - 'A' + 10 + '0';
-        }
-        if(a[i] >= 'a' && a[i] <= 'f')
-        {
-            a[i] = a[i] - 'a' + 10 + '0';
-        }
-        sum += (a[i] - '0') * (mypow(16,len - 1 - i));
-    }
-    return sum;
-}
-
-int mypow(int x,int y){
-  int res=1;
-  for(int i=0;i<y;i++){
-    res*=x;
-  }
-  return res;
-}
-
 uint32_t eval(int p, int q) {
   if(p > q) {
     printf("error:p>q in eval, p = %d, q = %d\n", p, q);
@@ -271,7 +244,7 @@ uint32_t eval(int p, int q) {
         return num;
       case TK_HEX:
         sscanf(tokens[p].str, "%x", &num);
-        return hexTodec(tokens[p].str);
+        return num;
       case TK_REG: 
         for(int i = 0; i < 8; i++) {
           if(strcmp(tokens[p].str, regsl[i]) == 0) {
