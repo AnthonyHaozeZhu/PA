@@ -172,63 +172,36 @@ bool check_parentheses(int p, int q) {
 
 
 int findDominantOp(int p, int q) {
-  int i = 0, j, cnt, op = 0, pos = -1;
-  for (i = p; i <= q; i++) {
-    if (tokens[i].type == TK_NUMBER)
-      continue;
-    else if (tokens[i].type == '(') {
-      cnt = 0;
-      for (j = i + 1; j <= q; j++) {
-        if (tokens[j].type == ')') {
-          cnt++;
-          i += cnt;
-          break;
-        }
-        else {
-          cnt++;
-        }
-      }
-    }
-    else {
-      // printf("hahhhha\n");
-      int opp;
-      switch (tokens[i].type)
-      {
-        case '+':
-          opp = 4;
-          break;
-        case '-': 
-          opp = 4;
-          break;
-        case '*': 
-          opp = 3;
-          break;
-        case '/':
-          opp = 3;
-          break;
-        case TK_EQ: 
-          opp = 7;
-          break;
-        case TK_NEQ:
-          opp = 7;
-          break;
-        case TK_AND: 
-          opp = 11;
-          break;
-        case TK_OR: 
-          opp = 12;
-          break;
-        default:
-          opp = 0;
-          break;
-      }
-      if (opp >= op) {
-        pos = i;
-        op = opp;
-      }
-    }
+  int level=0;
+  int pos[5]={-1,-1,-1,-1,-1};
+  int i=p;
+  for(;i<q;i++){
+     if(level==0){
+         if(tokens[i].type==TK_AND||tokens[i].type==TK_OR){
+              pos[0]=i;
+          }
+         if(tokens[i].type==TK_EQ||tokens[i].type==TK_NEQ){
+              pos[1]=i;
+          } 
+         if(tokens[i].type=='+'||tokens[i].type=='-'){
+              pos[2]=i;
+          }
+         if(tokens[i].type=='*'||tokens[i].type=='/'){
+              pos[3]=i;
+          }
+        if(tokens[i].type==TK_NEGATIVE||tokens[i].type==TK_DEREF||tokens[i].type=='!'){
+              pos[4]=i;
+          }
+     }
+     if(tokens[i].type=='(') level++;
+     if(tokens[i].type==')') level--;
   }
-  return pos;
+  for(i=0;i<5;i++){
+    if(pos[i]!=-1) return pos[i];
+  }
+  printf("error in findDominantOp\n");
+  printf("[p=%d,q=%d]\n",p,q);
+  assert(0);
 }
 
 uint32_t eval(int p, int q) {
