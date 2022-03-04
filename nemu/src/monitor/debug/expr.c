@@ -250,6 +250,14 @@ int hexTodec(char *a)
     return sum;
 }
 
+int mypow(int x,int y){
+  int res=1;
+  for(int i=0;i<y;i++){
+    res*=x;
+  }
+  return res;
+}
+
 uint32_t eval(int p, int q) {
   if(p > q) {
     printf("error:p>q in eval, p = %d, q = %d\n", p, q);
