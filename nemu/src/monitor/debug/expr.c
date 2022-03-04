@@ -318,8 +318,8 @@ uint32_t expr(char *e, bool *success) {
     if(tokens[i].type == '*') {
       if(tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')') {
         tokens[i].type = TK_DEREF;
+      }
     }
-  }
   }
   *success = true;
   return eval(0, nr_token - 1);
