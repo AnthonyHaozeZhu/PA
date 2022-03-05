@@ -131,7 +131,7 @@ static int cmd_p(char *args) {
 
 static int cmd_w(char* args) {
   //新监视点的申请
-  bool temp = new_wp(args);
+  new_wp(args);
   return 0;
 }
 
