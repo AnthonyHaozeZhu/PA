@@ -66,6 +66,11 @@ static int cmd_info(char *args) {
     printf("args error in cmd_info\n");
     return 0;
   }
+  if(s == 'w') {
+    //打印监视点信息
+    print_wp();;
+    return 0;
+  }
   if(s == 'r') {
     //打印寄存器
     //32bit
@@ -124,6 +129,32 @@ static int cmd_p(char *args) {
   return 0;
 }
 
+static int cmd_w(char* args) {
+  //新监视点的申请
+  new_wp(args);
+  return 0;
+}
+
+static int cmd_d(char* args) {
+  //删除监视点,args为监视点编号
+  int num = 0;
+  int nRet = sscanf(args, "%d", &num);
+  if(nRet <= 0) {
+    //解析失败
+    printf("args error in cmd_si\n");
+    return 0;
+  }
+  int r = free_wp(num);
+  if(r == false) {
+    printf("error: no watchpoint %d\n", num);
+  }
+  else {
+    printf("Success delete watchpoint %d\n", num);
+  }
+  return 0;
+}
+
+
 static struct {
   char *name;
   char *description;
@@ -139,6 +170,8 @@ static struct {
   { "info", "args:r/w;print information about register or watch point ", cmd_info}, //打印寄存器状态
   { "x", "x [N] [EXPR];sacn the memory", cmd_x }, //内存扫描
   { "p", "expr", cmd_p}, //表达式
+  { "w", "set the watchpoint", cmd_w}, //添加监视点
+  { "d", "delete the watchpoint", cmd_d} //删除监视点
 };
 
 #define NR_CMD (sizeof(cmd_table) / sizeof(cmd_table[0]))
