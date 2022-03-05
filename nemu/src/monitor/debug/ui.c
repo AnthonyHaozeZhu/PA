@@ -129,8 +129,7 @@ static int cmd_p(char *args) {
   return 0;
 }
 
-static int cmd_w(char* args) {
-  //新监视点的申请
+static int cmd_w(char *args) {
   new_wp(args);
   return 0;
 }
