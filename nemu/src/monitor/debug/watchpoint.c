@@ -24,7 +24,7 @@ void init_wp_pool() {
 }
 
 /* TODO: Implement the functionality of watchpoint */
-bool new_up(char *args) {
+bool new_wp(char *args) {
   //从free链表中返回一个空闲监视点结构
   if(free_ == NULL) {
     //首先查看free链表是否存在，如果不存在则报错
