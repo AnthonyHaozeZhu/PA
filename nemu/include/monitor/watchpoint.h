@@ -14,7 +14,7 @@ typedef struct watchpoint {
 
 } WP;
 
-bool new_wp(char*);
+bool new_wp(char* args);
 bool free_wp(int);
 void print_wp();
 bool watch_wp();
