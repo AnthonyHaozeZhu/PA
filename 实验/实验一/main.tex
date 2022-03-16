@@ -821,132 +821,58 @@ CF是Carry Flag的缩写，位于EFLAGS的第0位，是标志进位的意思。�
   \includegraphics*[scale = 0.45]{8}
 \end{center}
 \subsubsection{ModR/M 字节是什么?}
-ModR/M是opcode(操作码)后面的一个字节，用来表示操作数是在内存中还是在寄存器。
+ModR/M是opcode(操作码)后面的一个字节，是变长指令的一部分，用于指定带操作的寄存器或是操作数在内存中。参考i386-17.2(P38-40)
+\begin{center}
+  \includegraphics{9}
+\end{center}
 \subsubsection{mov 指令的具体格式是怎么样的?}
-maaas
+参考i386-3.1(P45)\\
+\par MOV (Move) transfers a byte, word, or doubleword from the source operand to the destination operand. The MOV instruction is useful for transferring data along any of these paths There are also variants of MOV that operate on segment registers. These are covered in a later section of this chapter.:
+\begin{itemize}
+  \item To a register from memory
+  \item To memory from a register
+  \item Between general registers
+  \item Immediate data to a register
+  \item Immediate data to a memory
+\end{itemize}
+\par 参考i386-17.3(P345)
+\begin{center}
+  \includegraphics[scale = 0.7]{10}
+\end{center}
+\subsection{题目二}
+\subsubsection*{shell 命令完成 PA1 的内容之后,nemu/目录下的所有.c 和.h 和文件总共有多少行代码?你是使用什么命令得到这个结果的?和框架代码相比,你在 PA1 中编写了多少行代码?(Hint:目前 2017 分支中记录的正好是做 PA1 之前的状态,思考一下应该如何回到"过去"?)你可以把这条命令写入 Makefile 中,随着实验进度的推进,你可以 很方便地统计工程的代码行数,例如敲入 make count 就会自动运行统计代码行数的命令.再来个难一点的,除去 空行之外,nemu/目录下的所有.c 和.h 文件总共有多少行代码?}
+\begin{itemize}
+  \item 用于计算.c .h文件有多少行
+  \begin{lstlisting}
+find ./ -name "*.[ch]" |xargs cat|wc -l
+  \end{lstlisting}
+  \item 用于计算.c .h文件除去空格有多少行
+  \begin{lstlisting}
+find . -name "*[.cpp| .h]" | xargs grep "^."| wc -l
+  \end{lstlisting}
+  \item 如果需要统计PA1做的代码量，只需将git branch切换到PA0做一次统计，将其结果相减便可以得到PA1的代码量
+  \item 试验结果如下
+  \begin{center}
+    \includegraphics[scale = 0.4]{11}
+  \end{center}
+  可以看出，PA1中.c和.h文件中的代码总共有3956行，除去空行总共有3308行，PA1总工作量为3308-2850 = 458行代码。
+\end{itemize}
+\subsection{题目三}
+\subsubsection*{使用 man 打开工程目录下的 Makefile 文件,你会在 CFLAGS 变量中看到 gcc 的 一些编译选项.请解释 gcc 中的-Wall 和-Werror 有什么作用?为什么要使用-Wall 和-Werror?}
+\begin{itemize}
+  \item -Wall，打开gcc的所有警告。 
+  \item -Werror，它要求gcc将所有的警告当成错误进行处理
+\end{itemize}
+我觉得使用这两者是为了在编译阶段尽早发现错误，提高代码的安全性，便于bug的发现与修复，提高程序的鲁棒性。
 
-
-
-% \section{}
-% \subsection{第一节}
-% 如图\ref{fig:1}所示
-% \begin{figure}[H]
-%     \centering
-%     \includegraphics[scale=0.3]{NKU.png}
-%     \caption{Caption}
-%     \label{fig:1}
-% \end{figure}
-
-% 表
-% \begin{table}[!htbp]
-%   \centering
-%   \begin{tabular}{ccccccccccc}
-%   \toprule  
-%   N/n$\backslash$Algo& naive-conv& naive-pool& omp-conv& omp-pool\\
-%   \midrule
-%   64/2& 0.0167& 0.01255& 0.04142& 0.03799\\
-%   64/4& 0.03599&0.0394& 0.0458& 0.0421\\
-%   \bottomrule
-%   \end{tabular}
-%   \caption{性能测试结果(4线程)(单位:ms)}
-% \end{table}
-
-% 带单元格表格
-% \begin{table}[!htbp]
-%   \centering
-%   \begin{tabular}{|c|c|c|c|c|c|c|}
-%   \hline
-%   \multicolumn{2}{|c|}{ \multirow{2}*{$Cost$} }& \multicolumn{5}{c|}{To}\\
-%   \cline{3-7}
-%   \multicolumn{2}{|c|}{}&$A$&$B$&$C$&$D$&$E$\\
-%   \hline
-%   \multirow{3}*{From}&$B$&7&0&1&3&8\\
-%   \cline{2-7}
-%   &$C$&8&1&0&2&7\\
-%   \cline{2-7}
-%   &$D$&8&3&2&0&5\\
-%   \hline
-%   \end{tabular}
-%   \caption{结点C距离向量表(无毒性逆转)}
-% \end{table}
-
-% %——————————————————————————————————————
-% \subsection{第二节}
-% 伪代码
-
-% \begin{breakablealgorithm} 
-%   \caption{初始化obj文件信息——对应MeshSimplify类中readfile函数,Face类calMatrix函数} 
-%   \begin{algorithmic}[1] %每行显示行号  
-%       \Require obj文件,顶点、边、面列表
-%       \Ensure 是否读取成功
-%       \Function {calMatrix}{$Face$}  
-%               \State $normal \gets e1×e2$  
-%               \State $normal \gets normal/normal.length$
-%               \State $temp[] \gets {normal.x, normal.y, normal.z, normal· Face.v1}$
-%               \State $Matrix[i][j]=temp[i] * temp[j]$ 
-%               \State \Return{$Matrix$}  
-%       \EndFunction
-%       \State 根据obj的v和f区分点面信息,读取并加入列表
-%       \State $scale \gets $记录点坐标中距离原点最远的分量,以便后续OpenGL进行显示
-%       \State $ori \gets $记录中心点,便于OpenGL显示在中心位置,避免有的obj偏移原点较多
-%       \State 根据三角面片信息,计算一个面的三条边
-%       \State 计算每个面的矩阵$\gets calMatrix$
-%       \State 将每个面的矩阵加到各点,由点维护\\
-%       \Return True
-%   \end{algorithmic}  
-% \end{breakablealgorithm}
-
-% 代码
-% \begin{lstlisting}[title=逐列访问平凡算法,frame=trbl,language={C++}]
-%   void ord()   
-%   {
-%       double head,tail,freq,head1,tail1,timess=0; // timers
-%       init(N);
-%       QueryPerformanceFrequency((LARGE_INTEGER *)&freq );
-%       QueryPerformanceCounter((LARGE_INTEGER *)&head);
-%       for (int i=0; i<NN; i++)
-%           for (int j=0; j<NN; j++)
-%               col_sum[i] += (b[j][i]*a[j]);
-%       QueryPerformanceCounter ((LARGE_INTEGER *)& tail) ;
-%       cout << "\nordCol" <<(tail-head)*1000.0 / freq<< "ms" << endl;
-%   }
-% \end{lstlisting}
-
-
-% %——————————————————————————————————————
-% \subsection{第三节}
-
-% 参考文献\cite{adams1995hitchhiker}\cite{shin2016deep}
-    
-% 多行公式
-% \begin{align}
-%   a+b = a + b \\
-%   \frac{a+b}{a-b}
-% \end{align}
-
-% 行内公式：$\sum^N_{i=1}$
-
-% \textbf{超链接}  \href{http://youtube.com/}{YouTube}
-
-% 带标号枚举
-% \begin{enumerate}
-%   \item 1
-%   \item 2
-% \end{enumerate}
-
-% 不带标号枚举
-% \begin{itemize}
-%   \item 1
-%   \item 2
-% \end{itemize}
-
-% \xiaosi{切换字体大小}
-
-% %----------------------------------------------------------------
-% \section{总结}
-
-% %----------------------------------------------------------------
-% \newpage
-% \bibliographystyle{plain}
-% \bibliography{references} 
+\section{感想与遇到的问题}
+最初我是在Mac M1芯片体系结构下利用VMWare安装arm架构的Ubuntu 20.04系统下进行试验的。可是很遗憾，只要一make就会报错，如下图
+\begin{center}
+  \includegraphics[scale = 0.23]{12}
+\end{center}
+这是因为arm linux和x86linux在交叉编译上所出现的问题，通过查阅资料得知，通过在此时只要在./config命令中添加：--without-v4l ，然后make clean, 重新make即可修复该问题。但考虑到体系结构不同可能在后续实验中带来一系列的不必要的麻烦等问题，我选择了放弃arm linux，尝试在电脑上通过UTM虚拟x86版Linux，但由于差异巨大，导致性能极差，故再次放弃。最终，我选择租用腾讯云服务器，在腾讯云上安装了Ubuntu Server 20.04 LTS 64bit进行，配合Vs Code的远程ssh控制进行实验（我实在用不惯vim）。但在PA1实验开始进行make操作时，仍遇到了编译错误，如下图
+\begin{center}
+  \includegraphics[scale = 0.28]{13}
+\end{center}
+这是一个很明显的编译警告问题由于gcc的参数设置成了-Wall导致编译错误，于是我毫不犹豫的更改了MakeFile，顺利的进行了实验。但我很不理解作者为什么要留这样一个坑，直到前几天老师在微信群里说了这个问题，大概是编译器版本没有选择指导书建议的吧，不然高版本编译优化级别可能会带来带来暗坑，顿时又有些害怕。希望今后的三个PA实验不要因为环境导致错误导致整个remake。
 \end{document}
