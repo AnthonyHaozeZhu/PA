@@ -1,0 +1,12 @@
+0000000000000000 <main>:
+   0:	f3 0f 1e fa          	endbr64 
+   4:	55                   	push   %rbp
+   5:	48 89 e5             	mov    %rsp,%rbp
+   8:	c7 45 f8 01 00 00 00 	movl   $0x1,-0x8(%rbp)
+   f:	8b 45 f8             	mov    -0x8(%rbp),%eax
+  12:	8d 50 01             	lea    0x1(%rax),%edx
+  15:	89 55 f8             	mov    %edx,-0x8(%rbp)
+  18:	89 45 fc             	mov    %eax,-0x4(%rbp)
+  1b:	b8 00 00 00 00       	mov    $0x0,%eax
+  20:	5d                   	pop    %rbp
+  21:	c3                   	retq   
