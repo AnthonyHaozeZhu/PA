@@ -1,0 +1,60 @@
+%! Tex program = xelatex   
+\documentclass{homework}
+\usepackage{xeCJK}
+\usepackage{amsmath}
+\usepackage{booktabs} %表格
+\usepackage{listings}
+% \setmainfont{Times New Roman}
+\setCJKmainfont{Kaiti SC}
+% \setCJKfamilyfont{song}{Songti SC}
+% \renewcommand{\baselinestretch}{1.5} %行间距
+\author{朱浩泽 1911530}
+\class{计算机系统设计}
+\date{\today}
+\title{\Large{平时作业二}}
+
+
+\graphicspath{{./media/}}
+
+\begin{document} \maketitle
+
+\question \large{代码段一：
+\begin{lstlisting}[language = c++]
+int a = 0x80000000;
+int b = a / -1; 
+printf("\%d\n", b);
+\end{lstlisting}
+
+运行结果为-2147483648
+~\\
+
+\ \ \ \ \ \ \ \ \ \ \ \ \ 代码段二：
+\begin{lstlisting}[language = c++]
+int a = 0x80000000;
+int b = -1;
+int c = a / b; 
+printf("%d\n", c);
+\end{lstlisting}
+
+运行结果为“Floating point exception”，显然CPU检测到了异常。
+
+请问，为什么显示是“浮点异常”呢？
+}
+
+% \normalsize
+~\\
+答：第一段代码中a直接除以-1，可以将负整型常量转换为无符号类型来处理，所以最终所得的输出是-2147483648。
+处理代码段二时，b是一个有符号的变量，a/b计算所得的有符号数是-0x80000000即-2147483648，对于2147483648来说已经占了32位，此时如果再加上符号位则超出了int的32位表示范围，而编译器又严格参照IEEE规定，认为“溢出”的情况属于出现了“不存在的数字”，或者说是产生了未定义的无穷大的数，这样的情况则会被认为是产生了浮点数异常。
+
+
+~\\
+~\\
+~\\
+\question \large{为什么整数除0会发生异常而浮点数除0不会？}
+
+% \normalsize
+
+~\\
+答：使用整数除0会发生异常使程序终止，而浮点数除0会显示出为无穷大或NaN之类的输出。这是因为，浮点数的表示形式中，存在着表示无穷大的方式，而整数却不存在这种表示方式，所以抛出异常。
+
+\end{document}

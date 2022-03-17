@@ -1,0 +1,58 @@
+%! Tex program = xelatex   
+\documentclass{homework}
+\usepackage{xeCJK}
+\usepackage{amsmath}
+\usepackage{booktabs} %表格
+% \setmainfont{Times New Roman}
+\setCJKmainfont{Kaiti SC}
+% \setCJKfamilyfont{song}{Songti SC}
+% \renewcommand{\baselinestretch}{1.5} %行间距
+\author{朱浩泽 1911530}
+\class{计算机系统设计}
+\date{\today}
+\title{\Large{平时作业一}}
+% \address{Bayt El-Hikmah}
+
+\graphicspath{{./media/}}
+
+\begin{document} \maketitle
+
+\question \large{PPT翻页从按下翻页键到显示器显示下一页,中间经过了哪些过程和重要环节}
+\normalsize
+~\\
+答：首先鼠标点击翻页按钮，会有一个电信号传到CPU中的控制器，操作系统捕获到该消息，将它放到消息队列里处理，控制器会进行系统调用（这时，有可能会感觉到翻页并没有立马进行，这可能是因为进程在内存中一直处于阻塞的状态，即该操作处于消息队列优先级较低的位置），在其他调用完成后，该操作便开始执行。然后操作系统便会调出相应的对应于翻页的文件，其过程文件会被驻入内在，等待CPU中处理器对内存中数据进行查找、执行撤下原先的 PPT 图片和其他资源、换上刚找到的下一页的资源、更新显示器等一系列操作。当执行完毕后，结果又会返回到内在，由控制器将其交给显卡中的缓存区，由显卡做出图像运算，并将翻页动作显示在屏幕上。
+~\\
+~\\
+\question \large{用户CPU时间与系统响应时间哪个更长?举例说明}
+
+\normalsize
+~\\
+答：用户CPU时间指的是执行用户指令所用的时间，就是用户的进程获得了CPU资源以后，在用户态执行的时间；系统响应时间是计算机对用户的输入或请求作出反应的时间，包含了执行时间和等待时间。\\
+系统响应时间大于用户CPU时间。\\
+如：在键盘中输入一句话来说，系统响应时间包括了用户从敲击键盘到文字在屏幕上显示的时间（包括了I/O时间），而用户CPU时间则是在系统中调用了输入文字的代码后代码在CPU中执行的时间。
+~\\
+~\\
+
+\question \large{指令的CPI、机器的CPI、程序的CPI各能反映哪方面的性能?}
+
+\normalsize
+~\\
+答：
+\begin{itemize}
+	\item 指令的CPI对于特定的指令而言是一个定值，反应的是指令集的性能，如x86和arm的区别
+	\item 机器的CPI表示的是该机器指令集中每条指令执行平均需要多少时钟周期，反应机器或者硬件性能
+	\item 程序的CPI表示该程序每条指令实行是平均需要多少时钟周期，反应代码设计优劣以及编译器的性能
+\end{itemize}
+ 
+
+
+\question \large{Example MIPS中的CPI 1.57 是如何算出来的?}
+
+\normalsize
+~\\
+答：
+$$
+\frac{43\% \times 1 + 21\% \times 2 + 12\% \times 2 + 24\% \times 2}{1} = 1.57
+$$
+
+\end{document}

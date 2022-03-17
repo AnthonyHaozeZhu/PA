@@ -1,0 +1,49 @@
+%! Tex program = xelatex   
+\documentclass{homework}
+\usepackage{xeCJK}
+\usepackage{amsmath}
+\usepackage{booktabs} %表格
+% 
+\setCJKmainfont{Kaiti SC}
+% \setCJKfamilyfont{song}{Songti SC}
+% \renewcommand{\baselinestretch}{1.5} %行间距
+\author{朱浩泽 1911530}
+\class{计算机系统设计平时作业三}
+\date{\today}
+\title{\Large{平时作业三}}
+
+\graphicspath{{./media/}}
+
+\begin{document} \maketitle
+
+\question \large{用代码的方式反汇编 i++ 和 ++i，了解和解释其背后的原理。}
+\normalsize
+~\\
+
+\noindent 我们利用linux自带工具objdump对代码进行反汇编操作，其指令如下
+源代码如下：
+\lstinputlisting[language = bash]{code/1.txt}
+\lstinputlisting[language=c++, caption={i++源代码}]{code/1.cpp}
+\lstinputlisting[language=c++, caption={++i源代码}]{code/2.cpp}
+进行反汇编后的代码如下：
+\lstinputlisting[caption={i++反汇编代码}]{code/11.txt}
+\lstinputlisting[caption={++i反汇编代码}]{code/2.txt}
+可以看出，以上代码并没有任何区别，所以我们将单纯的$i++$更改为$int\ a = i++$（$++i$更改为$int\ a = ++i$)再做尝试，可以得到反汇编代码如下：
+\lstinputlisting[caption = {i++反汇编代码}]{code/1.1.txt}
+\lstinputlisting[caption = {++i反汇编代码}]{code/2.1.txt}
+从上述代码便可以看出这两者之间的区别，首先从宏观上来看，如果是$int\ a = i++$的话，最终的值得到的是1，即a获得的是i的原值；如果是$int\ a = ++i$的话，最终得到的值是2，即a获得的是i更新后的值。然后对反汇编生成的代码进行分析，可以看出首先在栈上为变量i开辟一个空间，对i进行赋值操作，然后便出现了区别，i++是先取出i到操作数栈、然后再对局部变量表中的i做++，而++i是先对i进行加一操作，然后才取出i到操作数栈。对于上面代码具体来说便是$int\ a = i++$的过程是先将i的原值1复制到操作数栈，对a进行赋值即弹出操作数栈顶的值1，然后对局部变量表中i的原始值进行加1的操作，即使得i由1变为2，然后将这个值再赋给i更新i的值；而$int\ a = ++i$的过程是先对局部变量表中i的原始值进行加1的操作，即使得i由1变为2，然后将i的值复制到操作数栈，最后赋值即弹出操作数栈顶的值。
+~\\ 
+~\\ 
+~\\ 
+
+\question \large{用代码解释预处理的作用,背后的原因。}
+
+\normalsize
+~\\ 
+首先我们先找出一段基准代码如下
+\lstinputlisting[language = c++, caption = {源文件}]{code/helloworld.cpp}
+我们利用g++ helloworld.cpp −E −o helloworld.i生成预处理后的文件如下
+\lstinputlisting[caption = {预处理后的文件(节选)}]{code/qq.cpp}
+首先观察helloworld.i文件长度，在Linux系统下生成的helloworld.i文件由原本的22行代码增长至18189行，而macOS系统下则增至41496行代码。然后我们将引入头文件的语句删除，再进行一次该步骤，可以发现代码长度没有显著变化。可以很直观的看出，代码长度暴涨的原因是因为源文件中的\#include <iostream>即引入头文件的语句，被源文件的内容直接替代。由此可见，预处理器的一项工作便是引用头文件的语句直接替换为源文件的内容。而不同平台虽然都使用了g++编译器，但预处理后的代码也存在着巨大的差异，这是因为不同平台下，由于机器码等存在着差异，导致标准库头文件存在着差异，预处理阶段可以很好的降低这一差异所带来的相同代码在不同平台上所产生的各种问题。接下来对去除头文件后剩下的部分进行分析，可以看出源文件中的注释被自动消去了，宏定义的语句也被取代；而在main函数中，宏定义的参数直接被宏体做了简单的替换，由此可见，在我们写程序时，应将宏体用括号封装，以免出现应预处理器仅进行宏的简单替换而导致程序出错的问题。预处理器还有条件编译的功能。条件编译是根据实际定义宏（某类条件）进行代码静态编译的手段，可根据表达式的值或某个特定宏是否被定义来确定编译条件。预处理阶段的条件编译可以有效的防止重复包含头文件的宏。
+
+\end{document}
