@@ -34,6 +34,21 @@ typedef struct {
    */
   vaddr_t eip;
 
+  struct bs {
+    unsigned int CF:1;
+
+    unsigned int one:1;
+    unsigned int :4;
+    unsigned int ZF:1;
+    unsigned int SF:1;
+
+    unsigned int :1;
+    unsigned int IF:1;
+    unsigned int :1;
+    unsigned int OF:1;
+    unsigned int :20;
+  } eflags;
+
 } CPU_state;
 
 extern CPU_state cpu;
