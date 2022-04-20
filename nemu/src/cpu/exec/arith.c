@@ -54,7 +54,7 @@ make_EHelper(inc) {
   rtl_addi(&t2, &id_dest->val, 1);
   operand_write(id_dest, &t2);
   rtl_update_ZFSF(&t2, id_dest->width);
-  rtl_eqi(&t0,&t2,0x80000000);
+  rtl_eqi(&t0, &t2, 0x80000000);
   rtl_set_OF(&t0);
   print_asm_template1(inc);
 }
@@ -65,7 +65,7 @@ make_EHelper(dec) {
   rtl_subi(&t2, &id_dest->val, 1);
   operand_write(id_dest, &t2);
   rtl_update_ZFSF(&t2, id_dest->width);
-  rtl_eqi(&t0,&t2,0x7fffffff);
+  rtl_eqi(&t0, &t2, 0x7fffffff);
   rtl_set_OF(&t0);
   print_asm_template1(dec);
 }
