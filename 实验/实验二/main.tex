@@ -214,7 +214,7 @@ export NAVY_HOME=~/PA/ics2017/navy-apps
   } eflags;
 \end{lstlisting}
 
-这些Eflags将在nemu/src/monitor/monitor.c中进行初始化
+这些Eflags将在nemu/src/monitor/monitor.c中进行初始化, 并在nemu/src/cpu/arith.c中进行标志位的设置进行减法计算
 \begin{lstlisting}[language = C]
 static inline void restart() {
   /* Set the initial instruction pointer. */
@@ -228,7 +228,6 @@ static inline void restart() {
 #endif
 }
 \end{lstlisting}
-并在nemu/src/cpu/arith.c中进行标志位的设置
 \begin{lstlisting}[language = C]
 static inline void eflags_modify() {
   rtl_sub(&t2, &id_dest -> val, &id_src -> val);
@@ -488,13 +487,88 @@ make_EHelper(pop) {
 \end{lstlisting}
   
 \item call
+    
+为J形指令，操作数仅一个立即数。CPU 的跳转目标地址=当前 eip+立即数 offset。所以我们编写nemu/src/cpu/decode/decode.c中的译码函数make\_DHelper(J)，调用decode\_op\_SI 函数实现立即数的读取，并更新jmp\_eip。
+\begin{lstlisting}[language = C]
+make_DHelper(J) {
+  decode_op_SI(eip, id_dest, false);
+  // the target address can be computed in the decode stage
+  decoding.jmp_eip = id_dest->simm + *eip;
+}  
+\end{lstlisting}
+然后我们编写nemu/src/cpu/exe/control.c中的执行函数make\_EHelper(call)
+\begin{lstlisting}[language = C]
+make_EHelper(call) {
+  // the target address is calculated at the decode stage
+  //TODO();
+  rtl_li(&t2, decoding.seq_eip);
+  rtl_push(&t2);
 
+  decoding.is_jmp = 1;
 
+  print_asm("call %x", decoding.jmp_eip);
+}
+\end{lstlisting}
+  \item sub
+  
+  编写译码函数make\_DHelper(I2a)，调用 decode\_op\_a读取 AX/EAX中的数据写入 id\_dest，调用 decode\_op\_I 读取立即数并存入 id\_src
+  \begin{lstlisting}[language = C]
+make_DHelper(I2a) {
+  decode_op_a(eip, id_dest, true);
+  decode_op_I(eip, id_src, true);
+}
+\end{lstlisting}
+  编写执行函数make\_EHelper(sub)，调用 eflags\_modify()计算减法并将值写回寄存器
+  \begin{lstlisting}[language = C]
+make_EHelper(sub) {
+  // TODO();
 
+  eflags_modify();
+  operand_write(id_dest, &t2);
+  print_asm_template2(sub);
+}
+\end{lstlisting}
+
+  \item xor
+  
+  实现执行函数make\_Ehelper(xor)
+  \begin{lstlisting}[language = C]
+make_EHelper(xor) {
+  // TODO();
+  rtl_xor(&t2, &id_dest -> val, &id_src -> val);
+  operand_write(id_dest, &t2);
+
+  rtl_update_ZFSF(&t2, id_dest -> width);
+
+  rtl_set_CF(&tzero);
+  rtl_set_OF(&tzero);
+
+  print_asm_template2(xor);
+}
+\end{lstlisting}
+
+  \item ret
+  
+  实现执行函数make\_EHelper(ret)，用栈的数据修改IP的内容，实现近转移
+  \begin{lstlisting}[language = C]
+make_EHelper(ret) {
+  // TODO();
+  rtl_pop(&t2);
+  decoding.jmp_eip = t2;
+  decoding.is_jmp = 1;
+  print_asm("ret");
+}
+\end{lstlisting}
+
+在补充完这些所需要的指令后，我们再次执行 make ARCH=x86-nemu ALL=dummy，可以看到这时dummy.c可以在我们的nemu中正确的运行。
+\begin{center}
+\includegraphics[width=0.9\textwidth]{dummy.png}
+\end{center}
 \end{itemize}
 
-\subsection{指令执行的综述}
-在exec.c中，我们通过exec\_wrapper()函数开始执行指令，将当前的eip放进译码信息中(主要是为了诸如jmp，call等转移指令)，之后执行exec\_real()函数。在该函数中，我们首先从当前地址中取出一个字节。在指令集执行过程中，我们都是先取 出一个字节的操作码，从opcode\_table中寻找匹配项，再执行对应的译码程序和执行程序，完成程序指令的执行。
+我们可以看出，指令执行的大概过程是在exec.c中，我们通过exec\_wrapper()函数开始执行指令，将当前的eip放进译码信息中(主要是为了诸如jmp，call等转移指令)，之后执行exec\_real()函数。在该函数中，我们首先从当前地址中取出一个字节。在指令集执行过程中，我们都是先取 出一个字节的操作码，从opcode\_table中寻找匹配项，再执行对应的译码程序和执行程序，完成程序指令的执行。
+
+\section{阶段二}
 
 \section{感想与体会}
 opcode有一位的和两位的
