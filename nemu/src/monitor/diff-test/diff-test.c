@@ -182,11 +182,11 @@ void difftest_step(uint32_t eip) {
     printf("expect: %d true: %d at: %x\n", r.edi, cpu.edi, cpu.eip);
 	  diff=true;
   }
-  if (diff) {
-    nemu_state = NEMU_END;
-  }
   if(r.eip!=cpu.eip) {
 	  diff=true;
 	  Log("different:qemu.eip=0x%x,nemu.eip=0x%x",r.eip,cpu.eip);
+  }
+  if (diff) {
+    nemu_state = NEMU_END;
   }
 }
