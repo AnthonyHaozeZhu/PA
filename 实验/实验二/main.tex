@@ -979,9 +979,166 @@ static inline make_DopHelper(I) {
   \includegraphics*[scale = 0.25]{runall}
 \end{center}
 \section{阶段三}
+在nemu中，提供了端口映射和内存映射，后者主要用于显示画面，在
+nemu/include/common.h中定义宏HAS\_IOE后，即可加入IOE。
+\subsection{串口}
+in 指令用于将设备寄存器中的数据传输到 CPU 寄存器中，out指令用于将 CPU 寄存器中的数据传送到设备寄存器中。
+\begin{lstlisting}[language = C]
+make_EHelper(in) {
+  // TODO();
+  rtl_li(&t0, pio_read(id_src -> val, id_dest -> width));
+  operand_write(id_dest, &t0);
+  print_asm_template2(in);
 
+#ifdef DIFF_TEST
+  diff_test_skip_qemu();
+#endif
+}
+
+make_EHelper(out) {
+  // TODO();
+  pio_write(id_dest -> val, id_src -> width, id_src -> val);
+
+  print_asm_template2(out);
+
+#ifdef DIFF_TEST
+  diff_test_skip_qemu();
+#endif
+}
+\end{lstlisting}
+调用port-io程序中给出的写数据和读数据的端口即可，测试hello world
+\begin{center}
+  \includegraphics*[scale = 0.25]{hello world.png}
+\end{center}
+
+\subsection{时钟}
+在nexus-am/am/arch/x86-nemu/src/ioe.c中实现即可，我们看到初始化时， 已经给我们提供了样例，可以一样的方式添加。
+\begin{lstlisting}[language = C]
+unsigned long _uptime() {
+  unsigned long ms = inl(RTC_PORT) - boot_time;
+  return ms;
+}
+\end{lstlisting}
+time-test运行
+\begin{center}
+  \includegraphics*[scale = 0.3]{time.png}
+\end{center}
+跑分测试，可以看出，这性能是相当的差。
+  \begin{center}
+    \includegraphics*[scale = 0.3]{paofen1.png}
+  \end{center}
+  
+\subsection{键盘I/O}
+键盘也是利用端口映射实现，当有按键按下时，状态寄存器会设置为1，观察 keyboard.c可以发现，他将按下的键存在一个长为1024的数组中，访问时，会先访 问状态寄存器，若队列不为空或者其值为1，则访问数据寄存器获得对应的值。（在这里开始需要使用图形化界面，所以我们不得不配置图形化界面）
+\begin{lstlisting}[language = C]
+int _read_key() {
+  uint32_t key_code = _KEY_NONE;
+  if (inb(I8042_STATUS_PORT) )
+      key_code = inl(I8042_DATA_PORT);
+  return key_code;
+}
+\end{lstlisting}
+\begin{center}
+  \includegraphics*[scale = 0.35]{keu}
+\end{center}
+
+可以看到可以检测到同时按下多个按键，当发送的数字为键盘码+0x8000 时，意味着键盘被按下，而当单纯发送键盘码时，意味着键盘被抬起，这样来判断按键是否是在一起被按下。
+
+\subsection{VGA}
+在 paddr\_read() 和 paddr\_write() 中加入对内存映射 I/O 的判断。通过 is\_mmio() 函数判断一个物 理地址是否被映射到 I/O 空间，如果是， is\_mmio() 会返回映射号，否则返回-1。内存映射 I/O 的访问 需要调用 mmio\_read() 或 mmio\_write() ，调用时需要提供映射号。如果不是内存映射 I/O 的访问， 就访问 pmem。需要在nemu/src/memory/memory.c中引用头文件device/mmio.h，相当于我们将一系列io放入了内存中
+\begin{lstlisting}[language = C]
+#include "device/mmio.h"
+
+uint32_t paddr_read(paddr_t addr, int len) {
+  int r = is_mmio(addr);
+  if(r == -1) {
+    return pmem_rw(addr, uint32_t) & (~0u >> ((4 - len) << 3));
+  }
+  else {
+    return mmio_read(addr, len, r);
+  }
+}
+
+void paddr_write(paddr_t addr, int len, uint32_t data) {
+  int r = is_mmio(addr);
+  if(r == -1){
+    memcpy(guest_to_host(addr), &data, len);
+  }
+  else {
+    mmio_write(addr, len, data, r);
+  }
+}
+\end{lstlisting}
+
+在nexus-am/am/arch/x86-nemu/src/ioe.c中实现\_draw\_rect()函数，将一个矩阵中像素赋值，注意赋值的顺序
+\begin{lstlisting}[language = C]
+void _draw_rect(const uint32_t *pixels, int x, int y, int w, int h) {
+  // int i;
+  // for (i = 0; i < _screen.width * _screen.height; i++) {
+  //   fb[i] = i;
+  // }
+  int temp = (w > _screen.width - x)?_screen.width -x :w;
+  int cp_bytes = sizeof(uint32_t) *temp;
+  for(int j = 0; j < h && y + j < _screen.height; j++) {
+    memcpy(&fb[(y + j) * _screen.width + x], pixels, cp_bytes);
+    pixels += w;
+  }
+}
+\end{lstlisting}
+运行结果
+\begin{center}
+  \includegraphics*[scale = 0.2]{h}
+\end{center}
+\subsection{运行打字游戏}
+\begin{center}
+  \includegraphics*[scale = 0.35]{game}
+\end{center}
+
+\section{必答题}
+\subsection{第一题}
+\textbf{在nemu/include/cpu/rtl.h中,你会看到由staticinline开头定义的各种RTL指令函数.选择其中一个函数,分别尝试去掉 static,去掉 inline 或去掉两者,然后重新进行编译,你会看到发生错误。请分别解释为什么会发生这些错误?你有办法证明你的想法吗?}
+\begin{enumerate}
+  \item 去掉static
+  
+  首先我们去掉rtl\_push的static进行尝试，结果如下
+  \begin{center}
+    \includegraphics*[scale = 0.25]{ahh}
+  \end{center}
+  可以看到，无事发生。去掉static后就变成了内联函数。inline是向编译器建议，将被inline修饰的函数以内联的方式嵌入到调用 这个函数的地方。但这不是强制的，编译器的优化程度和最终是否内联也有关系。而static inline会以一 种类似于宏定义的方式，将调用被static inline修饰的函数的语句替换为那个函数体对应的指令，所以 static inline 是强制内联。所以去掉static后，编译器没有进行强制内联的话，该函数就相当于是一个普通函数。
+  \item 去掉inline
+  
+  然后我们去掉rtl\_push的inline进行尝试
+  \begin{center}
+    \includegraphics*[scale = 0.25]{pupu}
+  \end{center}
+  会出现定义但未使用的问题。这是因为去掉inline后函数变成了静态函数，只能在该文件中被引用。而该rtl.h文件中并没有引用rtl\_mv函 数，而是在exe文件夹下的*.c文件中引用了。
+
+  \item inline和static都去掉
+  
+  我们去掉rtl\_push的inline和static进行尝试。
+  \begin{center}
+    \includegraphics*[scale = 0.25]{false}
+  \end{center}
+  出现重复定义的情况。这是因为exe文件夹下的.c文件中都引用了rtl.h文件，编译的时候这些文件和rtl.h 文件中都有了rtl\_mv函数的定义，导致了多次定义。而如果是static inline 或者是static，是将该函数的 使用限定在了该源文件中，允许其它文件中的重复定义，所以不会报错。
+
+
+\end{enumerate}
+
+\subsection{第二题}
+\textbf{了解Makefile请描述你在nemu目录下敲入make后,make程序如何组织.c和.h文件，最终生成可执行文件nemu/build/nemu.(这个问题包括两个方面:Makefile 的工作方式和编译链接的过程.)关于 Makefile 工作 方式的提示:Makefile 中使用了变量,包含文件等特性；Makefile 运用并重写了一些 implicit rules；在 man make 中搜索-n 选项,也许会对你有帮助；RTFM}
+
+makefile的各条指令可以概括为以下具体形式，下一行的content前面一定要有tab, instr用于指定obj文件，src指定依赖文件，content是具体的原 来需要在cmd中输入的指令，有时候为了书写的鲁棒性和可复用性，可以定义一些变量(前面用\$符号 表示)
+\begin{lstlisting}[]
+dest/instr: src
+  content
+\end{lstlisting}
+当执行make时，make会在当前目录下搜索Makefile，执行相应的操作。make首先会判断原始代码是 否经过变动了，会自动更新执行。
+是否更新执行的条件:
+如果这个工程没有编译过，那么我们的所有C文件都要编译并被链接。 如果这个工程的某几个C文件被修改，那么我们只编译被修改的C文件，并链接目标程序。 如果这个工程的头文件被改变了，那么我们需要编译引用了这几个头文件的C文件，并链接目标程 序。
+所以make在会根据c文件的依赖关系自动推导进行编译，编译出.o文件。然后是链接目标程序。链接 时，主要是链接函数和全局变量以及指令中指定的库文件。
 \section{感想与体会}
 opcode有一位的和两位的
+
 
 
 
