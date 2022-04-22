@@ -127,6 +127,7 @@ void init_qemu_reg() {
 }
 
 void difftest_step(uint32_t eip) {
+  printf("diff step %x\n", eip);
   union gdb_regs r;
   bool diff = false;
 
