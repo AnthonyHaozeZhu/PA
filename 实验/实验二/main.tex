@@ -559,16 +559,426 @@ make_EHelper(ret) {
   print_asm("ret");
 }
 \end{lstlisting}
+\end{itemize}
 
+\subsection{实验结果}
 在补充完这些所需要的指令后，我们再次执行 make ARCH=x86-nemu ALL=dummy，可以看到这时dummy.c可以在我们的nemu中正确的运行。
 \begin{center}
 \includegraphics[width=0.9\textwidth]{dummy.png}
 \end{center}
-\end{itemize}
 
-我们可以看出，指令执行的大概过程是在exec.c中，我们通过exec\_wrapper()函数开始执行指令，将当前的eip放进译码信息中(主要是为了诸如jmp，call等转移指令)，之后执行exec\_real()函数。在该函数中，我们首先从当前地址中取出一个字节。在指令集执行过程中，我们都是先取 出一个字节的操作码，从opcode\_table中寻找匹配项，再执行对应的译码程序和执行程序，完成程序指令的执行。
+
+我们可以看出，指令执行的大概过程是在exec.c中，我们通过exec\_wrapper()函数开始执行指令，将当前的eip放进译码信息中(主要是为了诸如jmp，call等转移指令)，之后执行exec\_real()函数。在该函数中，我们首先从当前地址中取出一个字节。在指令集执行过程中，我们都是先取 出一个字节的操作码，从opcode\_table中寻找匹配项，再执行对应的译码程序和执行程序，完成程序指令的执行。具体来说，就是将当前的 \%eip 保存到全局译码信息 decoding 的成员 seq\_eip 中，然后将其地址被作为参数 送进 exec\_real() 函数。当代码从 exec\_real() 返回时， decoding.seq\_eip 将会指向下一条指令的地址，调用 idex() 对指令进行进一步的译码和执行。
 
 \section{阶段二}
+在阶段二中，需要我们进一步补全代码，并进行对应的diff-test对代码正确性进
+行检验
+\subsection{代码补全}
+\begin{itemize}
+  \item mov
+  \begin{lstlisting}[language = C++]
+make_EHelper(mov) {
+  operand_write(id_dest, &id_src->val);
+  print_asm_template2(mov);
+}
+  \end{lstlisting}
+  \item leave
+  \begin{lstlisting}[language = C]
+make_EHelper(leave) {
+  // TODO();
+
+  rtl_mv(&cpu.esp, &cpu.ebp);
+  rtl_pop(&cpu.ebp);
+  print_asm("leave");
+}
+\end{lstlisting}
+  \item and
+  \begin{lstlisting}[language = C]
+make_EHelper(and) {
+  // TODO();
+  
+  rtl_and(&t2,&id_dest->val,&id_src->val);
+  operand_write(id_dest,&t2);
+  rtl_update_ZFSF(&t2,id_dest->width);
+  rtl_set_CF(&tzero);
+  rtl_set_OF(&tzero);
+  print_asm_template2(and);
+}
+\end{lstlisting}
+  
+  在i386手册中为CBW和CWD，CBW为在EAX内字节到字的转换，和字到双字的 转换，CWD为在EAX和EDX间的转换
+
+  \item movsx/movzx
+  
+  因为id\_src和id\_dest两者的宽度并不相同，所以在进入函数 时会重新调整id\_dest的宽度，这意味我们填写译码函数时，按照id\_src的宽度去填 写就可以了。(我们是在执行函数中才更正了id\_dest的宽度，print出的结果没有随之更正，但不影响程序执行的结果)
+  \begin{lstlisting}[language = C]
+make_EHelper(movsx) {
+  id_dest->width = decoding.is_operand_size_16 ? 2 : 4;
+  rtl_sext(&t2, &id_src->val, id_src->width);
+  operand_write(id_dest, &t2);
+  print_asm_template2(movsx);
+}
+    
+make_EHelper(movzx) {
+  id_dest->width = decoding.is_operand_size_16 ? 2 : 4;
+  operand_write(id_dest, &id_src->val);
+  print_asm_template2(movzx);
+}
+\end{lstlisting}
+\item add
+
+add同sub，需要修改的地方主要是CF和OF的判别
+\begin{lstlisting}[language = C]
+  make_EHelper(add) {
+  // TODO();
+
+  rtl_add(&t2, &id_dest->val, &id_src->val);
+  operand_write(id_dest, &t2);
+
+  rtl_update_ZFSF(&t2, id_dest->width);
+
+  rtl_sltu(&t0, &t2, &id_dest->val);
+  rtl_set_CF(&t0);
+
+  rtl_xor(&t0, &id_src->val, &t2);
+  rtl_xor(&t1, &id_dest->val, &t2);
+  rtl_and(&t0, &t0, &t1);
+  rtl_msb(&t0, &t0, id_dest->width);
+  rtl_set_OF(&t0);
+  print_asm_template2(add);
+}
+\end{lstlisting}
+\item inc 
+\begin{lstlisting}[language = C]
+  make_EHelper(inc) {
+  //TODO();
+
+  rtl_addi(&t2, &id_dest->val, 1);
+  operand_write(id_dest, &t2);
+  rtl_update_ZFSF(&t2, id_dest->width);
+  rtl_eqi(&t0, &t2, 0x80000000);
+  rtl_set_OF(&t0);
+  print_asm_template1(inc);
+}
+\end{lstlisting}
+\item dec
+\begin{lstlisting}[language = C]
+  make_EHelper(dec) {
+  // TODO();
+
+  rtl_subi(&t2, &id_dest->val, 1);
+  operand_write(id_dest, &t2);
+  rtl_update_ZFSF(&t2, id_dest->width);
+  rtl_eqi(&t0, &t2, 0x7fffffff);
+  rtl_set_OF(&t0);
+  print_asm_template1(dec);
+}
+\end{lstlisting}
+\item cmp
+\begin{lstlisting}[language = C]
+  make_EHelper(cmp) {
+  // TODO();
+
+  eflags_modify();
+
+  print_asm_template2(cmp);
+}
+\end{lstlisting}
+\item neg
+
+二进制补码取反
+\begin{lstlisting}[language = C]
+make_EHelper(neg) {
+  // TODO();
+
+  rtl_sub(&t2, &tzero, &id_dest->val);
+  rtl_update_ZFSF(&t2, id_dest->width);
+  rtl_neq0(&t0,&id_dest->val);
+  rtl_set_CF(&t0);
+  rtl_eqi(&t0,&id_dest->val,0x80000000);
+  rtl_set_OF(&t0);
+  operand_write(id_dest,&t2);
+  print_asm_template1(neg);
+}
+\end{lstlisting}
+\item or 
+\begin{lstlisting}[language = C]
+make_EHelper(or) {
+  // TODO();
+
+  rtl_or(&t2,&id_dest->val,&id_src->val);
+  operand_write(id_dest,&t2);
+  rtl_update_ZFSF(&t2,id_dest->width);
+  rtl_set_CF(&tzero);
+  rtl_set_OF(&tzero);
+  print_asm_template2(or);
+
+  print_asm_template2(or);
+}
+\end{lstlisting}
+\item not 
+\begin{lstlisting}[language = C]
+make_EHelper(not) {
+  // TODO();
+
+  rtl_not(&id_dest->val);
+  operand_write(id_dest,&id_dest->val);
+  print_asm_template1(not);
+}
+\end{lstlisting}
+\item cltd 
+
+当于 cdq 指令，作用是把 eax 的 32 位整数扩展 为 64 位，高 32 位用 eax 的符号位填充保存到edx，或 ax 的 16 位整数扩展为 32 位，高 16 位用 ax 的符号位填充保存到 dx
+\begin{lstlisting}[language = C]
+make_EHelper(cltd) {
+  if (decoding.is_operand_size_16) {
+    // TODO();
+    rtl_lr_w(&t0, R_AX);
+    rtl_sext(&t0, &t0, 2);
+    rtl_sari(&t0, &t0, 31);
+    rtl_sr_w(R_DX, &t0);
+  }
+  else {
+    // TODO();
+    rtl_sari(&cpu.edx, &cpu.eax, 31);
+  }
+
+  print_asm(decoding.is_operand_size_16 ? "cwtl" : "cltd");
+}
+\end{lstlisting}
+\item leave
+
+将栈指针指向帧指针，然后 pop 备份的原帧指针到\%ebp
+\begin{lstlisting}[language = C]
+make_EHelper(leave) {
+  // TODO();
+
+  rtl_mv(&cpu.esp, &cpu.ebp);
+  rtl_pop(&cpu.ebp);
+  print_asm("leave");
+}
+\end{lstlisting}
+\item 补全的指令表
+\begin{lstlisting}[language = C]
+  /* 0x80, 0x81, 0x83 */
+make_group(gp1,
+    EX(add), EX(or), EX(adc), EX(sbb),
+    EX(and), EX(sub), EX(xor), EX(cmp))
+
+  /* 0xc0, 0xc1, 0xd0, 0xd1, 0xd2, 0xd3 */
+make_group(gp2,
+    EX(rol), EMPTY, EMPTY, EMPTY,
+    EX(shl), EX(shr), EMPTY, EX(sar))
+
+  /* 0xf6, 0xf7 */
+make_group(gp3,
+    IDEX(test_I, test), EMPTY, EX(not), EX(neg),
+    EX(mul), EX(imul1), EX(div), EX(idiv))
+
+  /* 0xfe */
+make_group(gp4,
+    EX(inc), EX(dec), EMPTY, EMPTY,
+    EMPTY, EMPTY, EMPTY, EMPTY)
+
+  /* 0xff */
+make_group(gp5,
+    EX(inc), EX(dec), EX(call_rm), EMPTY,
+    EX(jmp_rm), EMPTY, EX(push), EMPTY)
+
+  /* 0x0f 0x01*/
+make_group(gp7,
+    EMPTY, EMPTY, EMPTY, EMPTY,
+    EMPTY, EMPTY, EMPTY, EMPTY)
+
+/* TODO: Add more instructions!!! */
+
+opcode_entry opcode_table [512] = {
+  /* 0x00 */	IDEXW(G2E, add, 1), IDEX(G2E, add), IDEXW(E2G, add, 1), IDEX(E2G, add),
+  /* 0x04 */	IDEXW(I2a, add, 1), IDEX(I2a, add), EMPTY, EMPTY,
+  /* 0x08 */	IDEXW(G2E, or, 1), IDEX(G2E, or), IDEXW(E2G, or, 1), IDEX(E2G, or),
+  /* 0x0c */	IDEXW(I2a, or, 1), IDEX(I2a, or), EMPTY, EX(2byte_esc),
+  /* 0x10 */	IDEXW(G2E, adc, 1), IDEX(G2E, adc), IDEXW(E2G, adc, 1), IDEX(E2G, adc),
+  /* 0x14 */	IDEXW(I2a, adc, 1), IDEX(I2a, adc), EMPTY, EMPTY,
+  /* 0x18 */	IDEXW(G2E, sbb, 1), IDEX(G2E, sbb), IDEXW(E2G, sbb, 1), IDEX(E2G, sbb),
+  /* 0x1c */	IDEXW(I2a, sbb, 1), IDEX(I2a, sbb), EMPTY, EMPTY,
+  /* 0x20 */	IDEXW(G2E, and, 1), IDEX(G2E, and), IDEXW(E2G, and, 1), IDEX(E2G, and),
+  /* 0x24 */	IDEXW(I2a, and, 1), IDEX(I2a, and), EMPTY, EMPTY,
+  /* 0x28 */	IDEXW(G2E, sub, 1), IDEX(G2E, sub), IDEXW(E2G, sub, 1), IDEX(E2G, sub),
+  /* 0x2c */	IDEXW(I2a, sub, 1), IDEX(I2a, sub), EMPTY, EMPTY,
+  /* 0x30 */	IDEXW(G2E, xor, 1), IDEX(G2E, xor), IDEXW(E2G, xor, 1), IDEX(E2G, xor),
+  /* 0x34 */	IDEXW(I2a, xor, 1), IDEX(I2a, xor), EMPTY, EMPTY,
+  /* 0x38 */	IDEXW(G2E, cmp, 1), IDEX(G2E, cmp), IDEXW(E2G, cmp, 1), IDEX(E2G, cmp),
+  /* 0x3c */	IDEXW(I2a, cmp, 1), IDEX(I2a, cmp), EMPTY, EMPTY,
+  /* 0x40 */	IDEX(r, inc), IDEX(r, inc), IDEX(r, inc), IDEX(r, inc),
+  /* 0x44 */	IDEX(r, inc), IDEX(r, inc), IDEX(r, inc), IDEX(r, inc),
+  /* 0x48 */	IDEX(r, dec), IDEX(r, dec), IDEX(r, dec), IDEX(r, dec),
+  /* 0x4c */	IDEX(r, dec), IDEX(r, dec), IDEX(r, dec), IDEX(r, dec),
+  /* 0x50 */	IDEX(r, push), IDEX(r, push), IDEX(r, push), IDEX(r, push),
+  /* 0x54 */	IDEX(r, push), IDEX(r, push), IDEX(r, push), IDEX(r, push),
+  /* 0x58 */	IDEX(r, pop), IDEX(r, pop), IDEX(r, pop), IDEX(r, pop),
+  /* 0x5c */	IDEX(r, pop), IDEX(r, pop), IDEX(r, pop), IDEX(r, pop),
+  /* 0x60 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0x64 */	EMPTY, EMPTY, EX(operand_size), EMPTY,
+  /* 0x68 */	IDEX(I, push), IDEX(I_E2G, imul3), IDEXW(push_SI, push, 1), IDEX(SI_E2G, imul3),
+  /* 0x6c */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0x70 */	IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1),
+  /* 0x74 */	IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1),
+  /* 0x78 */	IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1),
+  /* 0x7c */	IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1), IDEXW(J, jcc, 1),
+  /* 0x80 */	IDEXW(I2E, gp1, 1), IDEX(I2E, gp1), EMPTY, IDEX(SI2E, gp1),
+  /* 0x84 */	IDEXW(G2E, test, 1), IDEX(G2E, test), EMPTY, EMPTY,
+  /* 0x88 */	IDEXW(mov_G2E, mov, 1), IDEX(mov_G2E, mov), IDEXW(mov_E2G, mov, 1), IDEX(mov_E2G, mov),
+  /* 0x8c */	EMPTY, IDEX(lea_M2G, lea), EMPTY, IDEX(E, pop),
+  /* 0x90 */	EX(nop), EMPTY, EMPTY, EMPTY,
+  /* 0x94 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0x98 */	EMPTY, EX(cltd), EMPTY, EMPTY,
+  /* 0x9c */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xa0 */	IDEXW(O2a, mov, 1), IDEX(O2a, mov), IDEXW(a2O, mov, 1), IDEX(a2O, mov),
+  /* 0xa4 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xa8 */	IDEXW(I2a, test, 1), IDEX(I2a, test), EMPTY, EMPTY,
+  /* 0xac */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xb0 */	IDEXW(mov_I2r, mov, 1), IDEXW(mov_I2r, mov, 1), IDEXW(mov_I2r, mov, 1), IDEXW(mov_I2r, mov, 1),
+  /* 0xb4 */	IDEXW(mov_I2r, mov, 1), IDEXW(mov_I2r, mov, 1), IDEXW(mov_I2r, mov, 1), IDEXW(mov_I2r, mov, 1),
+  /* 0xb8 */	IDEX(mov_I2r, mov), IDEX(mov_I2r, mov), IDEX(mov_I2r, mov), IDEX(mov_I2r, mov),
+  /* 0xbc */	IDEX(mov_I2r, mov), IDEX(mov_I2r, mov), IDEX(mov_I2r, mov), IDEX(mov_I2r, mov),
+  /* 0xc0 */	IDEXW(gp2_Ib2E, gp2, 1), IDEX(gp2_Ib2E, gp2), EMPTY, EX(ret),
+  /* 0xc4 */	EMPTY, EMPTY, IDEXW(mov_I2E, mov, 1), IDEX(mov_I2E, mov),
+  /* 0xc8 */	EMPTY, EX(leave), EMPTY, EMPTY,
+  /* 0xcc */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xd0 */	IDEXW(gp2_1_E, gp2, 1), IDEX(gp2_1_E, gp2), IDEXW(gp2_cl2E, gp2, 1), IDEX(gp2_cl2E, gp2),
+  /* 0xd4 */	EMPTY, EMPTY, EX(nemu_trap), EMPTY,
+  /* 0xd8 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xdc */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xe0 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xe4 */	IDEXW(in_I2a, in, 1), IDEXW(in_I2a, in, 1), IDEXW(out_a2I, out, 1), IDEXW(out_a2I, out, 1),
+  /* 0xe8 */	IDEX(J, call), IDEX(J, jmp), EMPTY, IDEXW(J, jmp, 1),
+  /* 0xec */	IDEXW(in_dx2a, in, 1), IDEX(in_dx2a, in), IDEXW(out_a2dx, out, 1), IDEX(out_a2dx, out),
+  /* 0xf0 */  EMPTY, EMPTY, EMPTY, EXW(endbr, 3),
+  /* 0xf4 */	EMPTY, EMPTY, IDEXW(E, gp3, 1), IDEX(E, gp3),
+  /* 0xf8 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xfc */	EMPTY, EMPTY, IDEXW(E, gp4, 1), IDEX(E, gp5),
+
+  /*2 byte_opcode_table */
+
+  /* 0x00 */	EMPTY, IDEX(gp7_E, gp7), EMPTY, EMPTY,
+
+  ……
+
+  /* 0x80 */	IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc),
+  /* 0x84 */	IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc),
+  /* 0x88 */	IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc),
+  /* 0x8c */	IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc), IDEX(J, jcc),
+  /* 0x90 */	IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1),
+  /* 0x94 */	IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1),
+  /* 0x98 */	IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1),
+  /* 0x9c */	IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1), IDEXW(E, setcc, 1),
+  /* 0xa0 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xa4 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xa8 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xac */	EMPTY, EMPTY, EMPTY, IDEX(E2G, imul2),
+  /* 0xb0 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xb4 */	EMPTY, EMPTY, IDEXW(mov_E2G, movzx, 1), IDEXW(mov_E2G, movzx, 2),
+  /* 0xb8 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0xbc */	EMPTY, EMPTY, IDEXW(mov_E2G, movsx, 1), IDEXW(mov_E2G, movsx, 2),
+};
+\end{lstlisting}
+\item 补全nemu/src/cpu/exec/cc.c中的rtl\_setcc函数
+\begin{lstlisting}[language = C]
+  switch (subcode & 0xe) {
+    case CC_O:
+	    rtl_get_OF(dest);
+	    break;	
+    case CC_B:
+	    rtl_get_CF(dest);
+	    break;
+    case CC_E:
+	    rtl_get_ZF(dest);
+	    break;
+    case CC_BE:
+	    assert(dest!=&t0);
+	    rtl_get_CF(dest);
+	    rtl_get_ZF(&t0);
+      rtl_or(dest,dest,&t0);
+      break;
+    case CC_S:
+	    rtl_get_SF(dest);
+	    break;
+    case CC_L:
+	    assert(dest!=&t0);
+	    rtl_get_SF(dest);
+	    rtl_get_OF(&t0);
+      rtl_xor(dest,dest,&t0);
+	    break;
+    case CC_LE:
+	    assert(dest!=&t0);
+	    rtl_get_SF(dest);
+	    rtl_get_OF(&t0);
+      rtl_xor(dest,dest,&t0);
+	    rtl_get_ZF(&t0);
+	    rtl_or(dest,dest,&t0);
+	    break;
+    default: 
+      panic("should not reach here");
+    case CC_P: 
+      panic("n86 does not have PF");
+  }
+\end{lstlisting}
+\item 此外，需要补充nemu/src/cpu/decode.c中的make\_DopHelper(SI)函数
+\begin{lstlisting}[language = C]
+static inline make_DopHelper(I) {
+  /* eip here is pointing to the immediate */
+  op->type = OP_TYPE_IMM;
+  op->imm = instr_fetch(eip, op->width);
+  rtl_li(&op->val, op->imm);
+
+#ifdef DEBUG
+  snprintf(op->str, OP_STR_SIZE, "$0x%x", op->imm);
+#endif
+}
+\end{lstlisting}
+
+\end{itemize}
+\subsection{Differential Testing}
+每执行一条指令之后，为了及时地捕捉到 error，让 NEMU 和 QEMU 逐条指令地执行同一个客户程序，都会检查各自的寄存器和内存的状态，根据手册，这里不需要比 较eflags是否相同，因为有一些指令我们实现的并不一样。
+
+\begin{lstlisting}[language = C]
+  if(r.eax!=cpu.eax) {
+    diff=true;
+  }
+  if(r.ecx!=cpu.ecx) {
+    diff=true;
+  }
+  if(r.edx!=cpu.edx) {
+    diff=true;
+  }
+  if(r.ebx!=cpu.ebx) {
+    diff=true;
+  }
+  if(r.esp!=cpu.esp) {
+	  diff=true;
+  }
+  if(r.ebp!=cpu.ebp) {
+	  diff=true;
+  }
+  if(r.esi!=cpu.esi) {
+	  diff=true;
+  }
+  if(r.edi!=cpu.edi) {
+	  diff=true;
+  }
+  if (diff) {
+    nemu_state = NEMU_END;
+  }
+  if(r.eip!=cpu.eip) {
+	  diff=true;
+	  Log("different:qemu.eip=0x%x,nemu.eip=0x%x",r.eip,cpu.eip);
+  }
+\end{lstlisting}
+\subsection{实验结果}
+\begin{center}
+  \includegraphics*[scale = 0.25]{runall}
+\end{center}
+\section{阶段三}
 
 \section{感想与体会}
 opcode有一位的和两位的
