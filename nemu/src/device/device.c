@@ -2,7 +2,7 @@
 
 #ifdef HAS_IOE
 
-#include <sys/time.h
+#include <sys/time.h>
 #include <signal.h>
 #include <SDL2/SDL.h>
 
