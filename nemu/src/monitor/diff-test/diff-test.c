@@ -146,7 +146,6 @@ void difftest_step(uint32_t eip) {
 
   gdb_si();
   gdb_getregs(&r);
-  printf("diff step %x\n", eip);
   // TODO: Check the registers state with QEMU.
   // Set `diff` as `true` if they are not the same.
   // TODO();
