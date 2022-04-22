@@ -134,7 +134,7 @@ void difftest_step(uint32_t eip) {
     is_skip_nemu = false;
     return;
   }
-  printf("diff step %x\n", eip);
+
   if (is_skip_qemu) {
     // to skip the checking of an instruction, just copy the reg state to qemu
     gdb_getregs(&r);
@@ -146,7 +146,7 @@ void difftest_step(uint32_t eip) {
 
   gdb_si();
   gdb_getregs(&r);
-
+  printf("diff step %x\n", eip);
   // TODO: Check the registers state with QEMU.
   // Set `diff` as `true` if they are not the same.
   // TODO();
