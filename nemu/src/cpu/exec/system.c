@@ -14,7 +14,6 @@ make_EHelper(lidt) {
   cpu.idtr.base = t0;
 
   printf("%d %d\n",cpu.idtr.base, cpu.idtr.limit);
-  assert(0);
 
 #ifdef DEBUG
   Log("idtr.limit=0x%x", cpu.idtr.limit);
