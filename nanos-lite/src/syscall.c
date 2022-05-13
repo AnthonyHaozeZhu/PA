@@ -12,6 +12,7 @@ void sys_exit(int a){
 int sys_write(int fd, void *buf, size_t len) {
 	if(fd == 1 || fd == 2){
 		char c;
+    Log("buffer:%s", (char*)buf);
 		for(int i = 0; i < len; i++) {
 			memcpy(&c ,buf + i, 1);
 			_putc(c);
@@ -22,6 +23,10 @@ int sys_write(int fd, void *buf, size_t len) {
     panic("Unhandled fd=%d in sys_write()",fd);
   }
 	return -1;			
+}
+
+int sys_brk(int addr) {
+  return 0;
 }
 
 _RegSet* do_syscall(_RegSet *r) {
@@ -40,6 +45,9 @@ _RegSet* do_syscall(_RegSet *r) {
       break;
     case SYS_write:
       SYSCALL_ARG1(r) = sys_write(a[1], (void*)a[2], a[3]);
+      break;
+    case SYS_brk:
+      SYSCALL_ARG1(r) = sys_brk(a[1]);
       break;
     default: panic("Unhandled syscall ID = %d", a[0]);
   }
