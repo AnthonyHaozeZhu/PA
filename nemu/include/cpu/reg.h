@@ -49,6 +49,14 @@ typedef struct {
     unsigned int :20;
   } eflags;
 
+  struct IDTR
+  {
+    /* data */
+    uint32_t base;
+    uint16_t limit; 
+  } idtr;
+  
+
 } CPU_state;
 
 extern CPU_state cpu;
