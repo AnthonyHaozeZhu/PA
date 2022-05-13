@@ -20,7 +20,7 @@ void raise_intr(uint8_t NO, vaddr_t ret_addr) {
   uint32_t off_32_16 = vaddr_read(gate_addr+sizeof(GateDesc)-2,2);
   uint32_t target_addr = (off_32_16 << 16) + off_15_0;
 #ifdef DEBUG
-  Log("target_addr=0x%x",offset);
+  Log("target_addr=0x%x",target_addr);
 #endif
   decoding.is_jmp = 1;
   decoding.jmp_eip = target_addr;
