@@ -4,6 +4,7 @@ typedef struct {
   char *name;
   size_t size;
   off_t disk_offset;
+  off_t open_offset;
 } Finfo;
 
 enum {FD_STDIN, FD_STDOUT, FD_STDERR, FD_FB, FD_EVENTS, FD_DISPINFO, FD_NORMAL};
@@ -37,7 +38,7 @@ off_t disk_offset(int fd){
 
 off_t get_open_offset(int fd){
 	assert(fd >= 0 && fd < NR_FILES);
-	return file_table[fd].disk_offset;
+	return file_table[fd].open_offset;
 }
 
 void set_open_offset(int fd,off_t n){
@@ -46,7 +47,7 @@ void set_open_offset(int fd,off_t n){
 	if(n > file_table[fd].size) {
 		n = file_table[fd].size;
 	}
-	file_table[fd].disk_offset = n;
+	file_table[fd].open_offset = n;
 }
 
 extern void ramdisk_read(void *buf, off_t offset, size_t len);
@@ -99,6 +100,7 @@ int fs_close(int fd) {
 }
 
 size_t fs_filesz(int fd) {
+  assert(fd >= 0 && fd < NR_FILES);
   return file_table[fd].size;
 }
 
