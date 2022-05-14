@@ -112,9 +112,9 @@ ssize_t fs_read(int fd, void *buf, size_t len){
   if(fd == FD_DISPINFO){
     dispinfo_read(buf, get_open_offset(fd), n);
   }
-  // else {
-  //   ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
-  // }
+  else {
+    ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
+  }
   set_open_offset(fd, get_open_offset(fd) + n);
   return n;
 }
