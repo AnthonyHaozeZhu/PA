@@ -24,7 +24,15 @@ static Finfo file_table[] __attribute__((used)) = {
 
 void init_fs() {
   // TODO: initialize the size of /dev/fb
+  extern void getScreen(int *p_width, int *p_height);
+  int width = 0;
+  int height = 0;
+  getScreen(&width, &height);
+  file_table[FD_FB].size = width * height * sizeof(u_int32_t);
+  Log("set FD_FB size = %d", file_table[FD_FB].size);
 }
+
+
 
 size_t fs_fliesz(int fd) {
   assert(fd >= 0 && fd < NR_FILES);
@@ -64,9 +72,11 @@ int fs_open(const char*filename, int flags, int mode) {
 	return -1;
 }
 
+
+extern void fb_write(const void *buf, off_t offset, size_t len);
 ssize_t fs_write(int fd, void *buf, size_t len){
   assert(fd >= 0 && fd < NR_FILES);
-  if(fd < 3) {
+  if(fd < 3 || fd == FD_DISPINFO) {
     Log("arg invalid:fd<3");
     return 0;
   }
@@ -74,14 +84,21 @@ ssize_t fs_write(int fd, void *buf, size_t len){
   if(n > len) {
     n = len;
   }
-  ramdisk_write(buf, disk_offset(fd) + get_open_offset(fd), n);
+  if(fd == FD_FB){
+    fb_write(buf, get_open_offset(fd), n);
+  }
+  else {
+    ramdisk_write(buf, disk_offset(fd) + get_open_offset(fd), n);
+  }
   set_open_offset(fd, get_open_offset(fd) + n);
   return n;
 }
 
+void dispinfo_read(void *buf, off_t offset, size_t len);
+
 ssize_t fs_read(int fd, void *buf, size_t len){
   assert(fd >= 0 && fd < NR_FILES);
-  if(fd < 3) {
+  if(fd < 3 || fd == FD_FB) {
     Log("arg invalid:fd<3");
     return 0;
   }
@@ -89,7 +106,12 @@ ssize_t fs_read(int fd, void *buf, size_t len){
   if(n > len) {
     n = len;
   }
-  ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
+  if(fd == FD_DISPINFO){
+    dispinfo_read(buf, get_open_offset(fd), n);
+  }
+  else {
+    ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
+  }
   set_open_offset(fd, get_open_offset(fd) + n);
   return n;
 }
