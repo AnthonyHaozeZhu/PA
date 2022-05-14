@@ -20,9 +20,9 @@ make_EHelper(pop) {
 
 make_EHelper(movsb) {
   rtl_get_ZF(&t0);
-  uint8_t data=vaddr_read(cpu.cs+cpu.esi,1);
-  vaddr_write(cpu.esp+cpu.edi,1,data);
-  if(!t0){
+  uint8_t data=vaddr_read(cpu.ds + cpu.esi,1);
+  vaddr_write(cpu.es + cpu.edi,1,data);
+  if(!t0) {
     cpu.esi+=1;
     cpu.edi+=1;
   } else {
