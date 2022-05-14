@@ -1,5 +1,6 @@
 #include "common.h"
 #include "syscall.h"
+#include "fs.h"
 
 int sys_none() {
   return 1;
@@ -19,9 +20,13 @@ int sys_write(int fd, void *buf, size_t len) {
 		}
 		return len;
 	}
-  else{
-    panic("Unhandled fd=%d in sys_write()",fd);
+  // else{
+  //   panic("Unhandled fd=%d in sys_write()",fd);
+  // }
+  if(fd >= 3) {
+    return fs_write(fd, buf, len);
   }
+  Log("fd <= 0");
 	return -1;			
 }
 
