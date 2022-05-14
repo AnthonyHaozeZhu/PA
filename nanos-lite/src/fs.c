@@ -73,7 +73,7 @@ ssize_t fs_write(int fd, void *buf, size_t len){
   if(n > len) {
     n = len;
   }
-  ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
+  ramdisk_write(buf, disk_offset(fd) + get_open_offset(fd), n);
   set_open_offset(fd, get_open_offset(fd) + n);
   return n;
 }
@@ -102,19 +102,19 @@ size_t fs_filesz(int fd) {
   return file_table[fd].size;
 }
 
-// off_t fs_lseek(int fd, off_t offset, int whence) {
-//   switch(whence){
-//     case SEEK_SET:
-//       set_open_offset(fd, offset);
-//       return get_open_offset(fd);
-//     case SEEK_CUR:
-//       set_open_offset(fd, get_open_offset(fd) + offset);
-//       return get_open_offset(fd);
-//     case SEEK_END:
-//       set_open_offset(fd, fs_filesz(fd) + offset);
-//       return get_open_offset(fd);
-//     default:
-//       panic("Unhandled whence ID = %d", whence);
-//       return -1;
-//     }
-// }
+off_t fs_lseek(int fd, off_t offset, int whence) {
+  switch(whence) {
+    case SEEK_SET:
+      set_open_offset(fd, offset);
+      return get_open_offset(fd);
+    case SEEK_CUR:
+      set_open_offset(fd, get_open_offset(fd) + offset);
+      return get_open_offset(fd);
+    case SEEK_END:
+      set_open_offset(fd, fs_filesz(fd) + offset);
+      return get_open_offset(fd);
+    default:
+      panic("Unhandled whence ID = %d", whence);
+      return -1;
+    }
+}
