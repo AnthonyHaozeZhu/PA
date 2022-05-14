@@ -63,20 +63,20 @@ int fs_open(const char*filename, int flags, int mode) {
 	return -1;
 }
 
-// ssize_t fs_write(int fd, void *buf, size_t len){
-//   assert(fd >= 0 && fd < NR_FILES);
-//   if(fd < 3) {
-//     Log("arg invalid:fd<3");
-//     return 0;
-//   }
-//   int n = fs_fliesz(fd) - get_open_offset(fd);
-//   if(n > len) {
-//     n = len;
-//   }
-//   ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
-//   set_open_offset(fd, get_open_offset(fd) + n);
-//   return n;
-// }
+ssize_t fs_write(int fd, void *buf, size_t len){
+  assert(fd >= 0 && fd < NR_FILES);
+  if(fd < 3) {
+    Log("arg invalid:fd<3");
+    return 0;
+  }
+  int n = fs_fliesz(fd) - get_open_offset(fd);
+  if(n > len) {
+    n = len;
+  }
+  ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
+  set_open_offset(fd, get_open_offset(fd) + n);
+  return n;
+}
 
 ssize_t fs_read(int fd, void *buf, size_t len){
   assert(fd >= 0 && fd < NR_FILES);
