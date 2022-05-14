@@ -69,3 +69,5 @@ make_EHelper(mov_store_cr);
 
 make_EHelper(lidt);
 
+make_EHelper(movsb);
+
