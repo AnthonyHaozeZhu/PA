@@ -439,6 +439,574 @@ _RegSet* do_syscall(_RegSet *r) {
 \end{center}
 
 
+\section{阶段二 \ \ 
+在操作系统上运行 Hello World}
+在这一阶段，我们要在这一阶段运行hello world的循环打印程序。为实现这一目的，我们需要添加标准输出和堆区管理功能，并实现一个简易的文件系统。
+\subsection{sys\_write系统调用的实现}
+我们首先实现一个辅助函数\_write，其通过调用\_sys\_call函数返回eax寄存器的值。该函数在navy-apps/libs/libos/src/nanos.c文件中实现
+\begin{lstlisting}[language = C++]
+int _write(int fd, void *buf, size_t count){
+    return _syscall_(SYS_write, fd, (uintptr_t)buf, count);
+}
+\end{lstlisting}
+在nanos-lite/src/syscall.c中的do\_syscall 函数中加入SYS\_write系统调用，其实现如下：
+\begin{lstlisting}[language = C++]
+_RegSet* do_syscall(_RegSet *r) {
+  uintptr_t a[4];
+  a[0] = SYSCALL_ARG1(r);
+  a[1] = SYSCALL_ARG2(r);
+  a[2] = SYSCALL_ARG3(r);
+  a[3] = SYSCALL_ARG4(r);
+
+  switch (a[0]) {
+    case SYS_none: 
+      SYSCALL_ARG1(r) = sys_none();
+      break;
+    case SYS_exit: 
+      sys_exit(a[1]);
+      break;
+    case SYS_write:
+      SYSCALL_ARG1(r) = sys_write(a[1], (void*)a[2], a[3]);
+      break; 
+    default: panic("Unhandled syscall ID = %d", a[0]);
+  }
+
+  return NULL;
+}
+\end{lstlisting}
+在nanos-lite/src/syscall.c中实现sys\_write系统调用的实现
+\begin{lstlisting}[language = C++]
+int sys_write(int fd, void *buf, size_t len) {
+	if(fd == 1 || fd == 2) {
+		char c;
+    // Log("buffer:%s", (char*)buf);
+		for(int i = 0; i < len; i++) {
+			memcpy(&c ,buf + i, 1);
+			_putc(c);
+		}
+		return len;
+	}
+  else {
+     panic("Unhandled fd=%d in sys_write()", fd);
+  }
+  return -1;
+}
+\end{lstlisting}
+\subsection{堆区管理}
+在我们没有实现堆区的时候，在sys\_write函数中通过Log查看write的调用的情况的时候发现通过printf输出的时候是逐个字符输出的。
+
+我们知道调整堆区大小是通过 \_sbrk库函数来实现的，它的功能是将用户程序的的数据段结束的位置增长increment字节来实现。 
+
+
+首先我们在nanos-lite/src/syscall.c中实现sys\_brk系统调用的实现，目前 Nanos-
+lite 为单任务 OS，用户程序可自由使用空闲的内存，所以让 SYS\_brk 总是返回0，表示堆区大小的调整总是成功。
+\begin{lstlisting}[language = C++]
+_RegSet* do_syscall(_RegSet *r) {
+    uintptr_t a[4];
+    a[0] = SYSCALL_ARG1(r);
+    a[1] = SYSCALL_ARG2(r);
+    a[2] = SYSCALL_ARG3(r);
+    a[3] = SYSCALL_ARG4(r);
+  
+    switch (a[0]) {
+      case SYS_none: 
+        SYSCALL_ARG1(r) = sys_none();
+        break;
+      case SYS_exit: 
+        sys_exit(a[1]);
+        break;
+      case SYS_write:
+        SYSCALL_ARG1(r) = sys_write(a[1], (void*)a[2], a[3]);
+        break;
+      case SYS_brk:
+        SYSCALL_ARG1(r) = sys_brk(a[1]);
+        break;
+      default: panic("Unhandled syscall ID = %d", a[0]);
+  }
+  return -1;
+}
+
+int sys_brk(int addr) {
+  return 0;
+}
+\end{lstlisting}
+
+然后我们在用户层实现\_sbrk()，其主要思路是
+program break 一开始的位置位于程序的数据段结束的位置（由\_end标志），根据记录的 program break 位置和参数 increment，计算出新 program break，通过 SYS\_brk 系统调用来让操作系统设置新的program break，若成功返回0，更新 program break 的位置， 并将旧 program break 的位置作为\_sbrk的返回值返回；若失败\_sbrk返回-1。在navy-apps/libs/libos/src/nanos.c当中完成代码如下:
+\begin{lstlisting}[language = C++]
+void *_sbrk(intptr_t increment){
+  extern int end;
+  static uintptr_t probreak = (uintptr_t)&end;
+  uintptr_t probreak_new = probreak + increment;
+  int r = _syscall_(SYS_brk, probreak_new, 0, 0);
+  if(r == 0) {
+    uintptr_t temp = probreak;
+    probreak = probreak_new;
+    return (void*)temp;
+  }
+  return (void *)-1;
+}
+\end{lstlisting}
+实现后，我们可以看到，打印的内容不在时一个一个蹦出来的了，是连续的
+\begin{center}
+  \includegraphics*[scale = 0.35]{pic/4}
+\end{center}
+
+\color{red}{这一部分，我们又遇到了一个离谱的错误，见bug记录/CS指令}
+\normalcolor
+\subsection{简易文件系统的实现}
+我们大多数的app都是具有信息记录的，而且，文件的数量增加之后,我们就要知道哪个文件在 ramdisk 的什么位置。所以我们的操作系统需要实现简易的文件系统。
+
+我们在nanos-lite/include/fs.h中注册我们需要的函数，并在nanos-lite/src/fs.c中实现函数体。于此同时，我们还需要在nanos-lite/src/loader.c中引入fs.h头文件。
+\begin{lstlisting}[language = C++]
+extern void ramdisk_read(void *buf, off_t offset, size_t len);
+extern void ramdisk_write(const void *buf, off_t offset, size_t len);
+
+size_t fs_fliesz(int fd) {
+  assert(fd >= 0 && fd < NR_FILES);
+  return file_table[fd].size;
+}
+
+off_t disk_offset(int fd){
+  assert(fd >= 0 && fd < NR_FILES);
+  return file_table[fd].disk_offset;
+}
+
+off_t get_open_offset(int fd){
+  assert(fd >= 0 && fd < NR_FILES);
+  return file_table[fd].open_offset;
+}
+
+void set_open_offset(int fd,off_t n){
+  assert(fd >= 0 && fd < NR_FILES);
+  assert(n >= 0);
+  if(n > file_table[fd].size) {
+    n = file_table[fd].size;
+  }
+  file_table[fd].open_offset = n;
+} 
+
+size_t fs_filesz(int fd){
+  return file_table[fd].size;
+}
+\end{lstlisting}
+
+根据文件名查找文件描述符 fd
+\begin{lstlisting}[language = C++]
+int fs_open(const char*filename, int flags, int mode) {
+	for(int i = 0; i < NR_FILES; i++){
+		if(strcmp(filename, file_table[i].name) == 0) {
+			Log("success open:%d:%s",i,filename);
+			return i;
+		}
+	}
+	panic("this file not exist");
+	return -1;
+}
+\end{lstlisting}
+
+读取 fd 对应的文件。
+\begin{lstlisting}[language = C++]
+ssize_t fs_read(int fd, void *buf, size_t len){
+  assert(fd >= 0 && fd < NR_FILES);
+  if(fd < 3) {
+    Log("arg invalid:fd<3");
+    return 0;
+  }
+  int n = fs_fliesz(fd) - get_open_offset(fd);
+  if(n > len) {
+    n = len;
+  }
+  ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
+  set_open_offset(fd, get_open_offset(fd) + n);
+  return n;
+}
+\end{lstlisting}
+
+关闭文件
+\begin{lstlisting}[language = C++]
+int fs_close(int fd) {
+  assert(fd >= 0 && fd < NR_FILES);
+  return 0;
+}
+\end{lstlisting}
+
+
+做完这些函数的定义后，我们要重新实现nanos-lite/src/loader.c中的loader函数。然后更改nanos-lite/src/main.c中的用户程序，让其加载text文件。
+\begin{lstlisting}[language = C++]
+uintptr_t loader(_Protect *as, const char *filename) {
+  // TODO();
+  // ramdisk_read(DEFAULT_ENTRY, 0, RAMDISK_SIZE);
+  int fd = fs_open(filename, 0, 0);
+  Log("filename=%s,fd=%d",filename,fd);
+  fs_read(fd, DEFAULT_ENTRY, fs_filesz(fd));
+  fs_close(fd);
+  return (uintptr_t)DEFAULT_ENTRY;
+}
+\end{lstlisting}
+
+\subsection{完整的文件系统实现}
+我们在这里还需要实现fs\_write 和 fs\_seek，分别用来对 fd 对应的文件进行写操作和实现修改 fd 对应文件的 open\_offset的功能。
+
+\begin{lstlisting}[language = C++]
+ssize_t fs_write(int fd, void *buf, size_t len){
+  assert(fd >= 0 && fd < NR_FILES);
+  if(fd < 3) {
+    Log("arg invalid:fd<3");
+    return 0;
+  }
+  int n = fs_fliesz(fd) - get_open_offset(fd);
+  if(n > len) {
+    n = len;
+  }
+  ramdisk_write(buf, disk_offset(fd) + get_open_offset(fd), n);
+  set_open_offset(fd, get_open_offset(fd) + n);
+  return n;
+}
+
+
+off_t fs_lseek(int fd, off_t offset, int whence) {
+  switch(whence) {
+    case SEEK_SET:
+      set_open_offset(fd, offset);
+      return get_open_offset(fd);
+    case SEEK_CUR:
+      set_open_offset(fd, get_open_offset(fd) + offset);
+      return get_open_offset(fd);
+    case SEEK_END:
+      set_open_offset(fd, fs_filesz(fd) + offset);
+      return get_open_offset(fd);
+    default:
+      panic("Unhandled whence ID = %d", whence);
+      return -1;
+    }
+}
+\end{lstlisting}
+
+然后，我们需要在nanos-lite/src/syscall.c文件中实现系统调用
+\begin{lstlisting}[language = C++]
+int sys_write(int fd, void *buf, size_t len) {
+  if(fd == 1 || fd == 2) {
+    char c;
+    // Log("buffer:%s", (char*)buf);
+    for(int i = 0; i < len; i++) {
+      memcpy(&c ,buf + i, 1);
+      _putc(c);
+    }
+    return len;
+  }
+  if(fd >= 3) {
+    return fs_write(fd, buf, len);
+  }
+  Log("fd <= 0");
+  return -1;			
+}
+
+
+int sys_open(const char *pathname){
+    return fs_open(pathname, 0, 0);
+}
+
+int sys_read(int fd, void *buf,size_t len){
+    return fs_read(fd, buf, len);
+}
+
+int sys_lseek(int fd, off_t offset, int whence) {
+    return fs_lseek(fd, offset, whence);
+}
+
+int sys_close(int fd){
+    return fs_close(fd);
+}
+
+_RegSet* do_syscall(_RegSet *r) {
+  uintptr_t a[4];
+  a[0] = SYSCALL_ARG1(r);
+  a[1] = SYSCALL_ARG2(r);
+  a[2] = SYSCALL_ARG3(r);
+  a[3] = SYSCALL_ARG4(r);
+
+  switch (a[0]) {
+    case SYS_none: 
+      SYSCALL_ARG1(r) = sys_none();
+      break;
+    case SYS_exit: 
+      sys_exit(a[1]);
+      break;
+    case SYS_write:
+      SYSCALL_ARG1(r) = sys_write(a[1], (void*)a[2], a[3]);
+      break;
+    case SYS_brk:
+      SYSCALL_ARG1(r) = sys_brk(a[1]);
+      break;
+    case SYS_read:
+      SYSCALL_ARG1(r) = sys_read(a[1],(void*)a[2],a[3]);
+      break;
+    case SYS_open:
+      SYSCALL_ARG1(r) = sys_open((char*) a[1]);
+      break;
+    case SYS_close:
+      SYSCALL_ARG1(r) = sys_close(a[1]);
+      break;
+    case SYS_lseek:
+      SYSCALL_ARG1(r)=sys_lseek(a[1],a[2],a[3]);
+      break;
+    default: panic("Unhandled syscall ID = %d", a[0]);
+  }
+
+  return NULL;
+}
+\end{lstlisting}
+
+修改 nanos.c 中的代码：
+\begin{lstlisting}[language = C++]
+int _open(const char *path, int flags, mode_t mode) {
+  // _exit(SYS_open);
+  return _syscall_(SYS_open, (uintptr_t)path, flags, mode);
+}
+
+int _write(int fd, void *buf, size_t count){
+  return _syscall_(SYS_write, fd, (uintptr_t)buf, count);
+}
+
+int _read(int fd, void *buf, size_t count) {
+  // _exit(SYS_read);
+  return _syscall_(SYS_read, fd, (uintptr_t)buf, count);
+}
+
+int _close(int fd) {
+  // _exit(SYS_close);
+  return _syscall_(SYS_close, fd, 0, 0);
+}
+
+off_t _lseek(int fd, off_t offset, int whence) {
+  // _exit(SYS_lseek);
+  return _syscall_(SYS_lseek, fd, offset, whence);
+}
+\end{lstlisting}
+
+\subsection{实验结果}
+\begin{center}
+  \includegraphics*[scale = 0.25]{pic/阶段二}
+\end{center}
+
+\color{red} 报错可能会迟到，但从不缺席，这里我们见bug总结/open\_offset和disk\_offset的区别
+
+\normalcolor
+
+\section{阶段三\ \ \ 一切皆文件}
+在这一阶段，我们要把所有的东西都抽象成文件，不加以区分。
+
+\subsection{把 VGA 显存抽象成文件}
+/dev/fb将对应的数据写到VGA上，/proc/dispinfo包含了屏幕的相关信息，包含宽度和高度两个信息。我们所需要做的就是在读取文件、写入文件函数中，针对这两类文件进行重定向。
+先在nexus-am/am/arch/x86-nemu/src/ioe.c中定义getScreen函数，返回屏幕大小信息
+\begin{lstlisting}[language = C++]
+void getScreen(int *width, int *height) {
+  *width = _screen.width;
+  *height = _screen.height;
+} 
+\end{lstlisting}
+
+nanos-lite/src/fs.cwen文件中的init\_fs函数对文件记录表中的/dev/fb的大小进行初始化，IOE中定义的API在nexus-am目录下的am.h文件中，对应的函数在ioe.c文件中
+\begin{lstlisting}[language = C++]
+void init_fs() {
+  // TODO: initialize the size of /dev/fb
+  extern void getScreen(int *p_width, int *p_height);
+  int width = 0;
+  int height = 0;
+  getScreen(&width, &height);
+  file_table[FD_FB].size = width * height * sizeof(u_int32_t);
+  Log("set FD_FB size = %d", file_table[FD_FB].size);
+}
+\end{lstlisting}
+
+在 nanos-lite/src/device.c 实现fb\_write函数，来绘制屏幕上的像素点
+\begin{lstlisting}[language = C++]
+void fb_write(const void *buf, off_t offset, size_t len) {
+  assert(offset % 4 == 0 && len % 4 == 0);
+  int index, screen_x1, screen_y1, screen_y2;
+  int width=0,height=0;
+  getScreen(&width, &height);
+  index=offset/4;
+  screen_y1=index/width;
+  screen_x1=index%width;
+
+  index=(offset+len)/4;
+  screen_y2=index/width;
+
+  assert(screen_y2>=screen_y1);
+
+  if(screen_y2==screen_y1)
+  {
+    _draw_rect(buf,screen_x1,screen_y1,len/4,1);
+    return ;
+  }
+
+  int tempw=width-screen_x1;
+  if(screen_y2-screen_y1==1)
+  {
+    _draw_rect(buf,screen_x1,screen_y1,tempw,1);
+    _draw_rect(buf+tempw * 4 ,0,screen_y2,len/4-tempw,1);
+    return ;
+  }
+  _draw_rect(buf, screen_x1, screen_y1, tempw, 1);
+  int tempy = screen_y2 - screen_y1 - 1;
+  _draw_rect(buf + tempw * 4, 0, screen_y1 + 1, width, tempy);
+  _draw_rect(buf+tempw*4+tempy*width*4,0,screen_y2, len / 4 - tempw - tempy * width, 1);
+}
+\end{lstlisting}
+
+然后我们在nanos-lite/src/device.c文件中添加init\_device函数将长宽信息按写入 dispinfo
+
+\begin{lstlisting}[language = C++]
+void init_device() {
+  _ioe_init();
+
+  // TODO: print the string to array `dispinfo` with the format
+  // described in the Navy-apps convention
+  int width = 0, height = 0;
+  getScreen(&width, &height);
+  sprintf(dispinfo, "WIDTH:%d\nHEIGHT:%d\n", width,height);
+}
+
+void dispinfo_read(void *buf, off_t offset, size_t len) {
+  strncpy(buf, dispinfo + offset, len);
+}
+\end{lstlisting}
+
+在nanos-lite/src/fs.c文件中补充fs\_write函数，
+
+\begin{lstlisting}[language = C++]
+extern void fb_write(const void *buf, off_t offset, size_t len);
+ssize_t fs_write(int fd, void *buf, size_t len){
+  assert(fd >= 0 && fd < NR_FILES);
+  if(fd < 3 || fd == FD_DISPINFO) {
+    Log("arg invalid:fd<3");
+    return 0;
+  }
+  int n = fs_fliesz(fd) - get_open_offset(fd);
+  if(n > len) {
+    n = len;
+  }
+  if(fd == FD_FB){
+    fb_write(buf, get_open_offset(fd), n);
+  }
+  else {
+    ramdisk_write(buf, disk_offset(fd) + get_open_offset(fd), n);
+  }
+  set_open_offset(fd, get_open_offset(fd) + n);
+  return n;
+}
+\end{lstlisting}
+实验结果
+\begin{center}
+  \includegraphics*[scale = 0.2]{pic/5}
+\end{center}
+\color{red} 这里说的虽然轻描淡写，但遇到了迄今为止最大的问题，见bug总结/显存
+\normalcolor
+
+\subsection{把设备输入抽象成文件}
+将时钟信息和按键信息抽象成文件/dev/events，并对其进行读取，用户程序可以从中一次读出一个输入事件。 首先在nanos­lite/src/device.c 中实现events\_read函数，将事件写入到buf中
+\begin{lstlisting}[language = C++]
+size_t events_read(void *buf, size_t len) {
+  char buffer[40];
+  int key = _read_key();
+  int down = 0;
+  if(key & 0x8000) {
+      key ^= 0x8000;
+      down = 1;
+  }
+  if(key != _KEY_NONE) {
+      sprintf(buffer, "%s %s\n", down ? "kd": "ku", keyname[key]);
+  }
+  else {
+      sprintf(buffer,"t %d\n", _uptime());
+  }
+  if(strlen(buffer) <= len) { 
+    strncpy((char*)buf, buffer,strlen(buffer));
+    return strlen(buffer);
+  } 
+  Log("strlen(event)>len, return 0");
+  return 0;
+}
+\end{lstlisting}
+
+在文件系统中添加对/dev/events 的支持:
+\begin{lstlisting}[language = C++]
+ssize_t fs_read(int fd, void *buf, size_t len){
+  assert(fd >= 0 && fd < NR_FILES);
+  if(fd < 3 || fd == FD_FB) {
+    Log("arg invalid:fd<3");
+    return 0;
+  }
+  if(fd == FD_EVENTS) {
+    return events_read(buf, len);
+  }
+  int n = fs_fliesz(fd) - get_open_offset(fd);
+  if(n > len) {
+    n = len;
+  }
+  if(fd == FD_DISPINFO){
+    dispinfo_read(buf, get_open_offset(fd), n);
+  }
+  else {
+    ramdisk_read(buf, disk_offset(fd) + get_open_offset(fd), n);
+  }
+  set_open_offset(fd, get_open_offset(fd) + n);
+  return n;
+}
+\end{lstlisting}
+
+实验结果
+\begin{center}
+  \includegraphics*[scale = 0.3]{pic/6}
+  \includegraphics*[scale = 0.3]{pic/7}
+\end{center}
+
+\subsection{运行仙剑奇侠传}
+首先，我们在nemu/src/cpu/exec/data-mov.c文件中补充指令cwtl，这是一个AT\&A格式的符号扩展指令
+\begin{lstlisting}[language = C++]
+make_EHelper(cwtl) {
+  if (decoding.is_operand_size_16) {
+      rtl_lr_b(&t0, R_AX);
+      rtl_sext(&t0, &t0, 1);
+      rtl_sr_w(R_AX, &t0);
+    } 
+    else {
+      rtl_lr_w(&t0, R_AX);
+      rtl_sext(&t0, &t0, 2);
+      rtl_sr_l(R_EAX, &t0);
+    }
+  print_asm(decoding.is_operand_size_16 ? "cbtw" : "cwtl");
+}
+\end{lstlisting}
+
+
+然后我们将网上下载的输入放入navy-apps/fsimg/share/games/pal中，运行仙剑奇侠传
+\begin{center}
+  \includegraphics*[scale = 0.3]{pic/8}
+  \includegraphics*[scale = 0.2]{pic/9}
+  \includegraphics*[scale = 0.2]{pic/10}
+  \includegraphics*[scale = 0.4]{pic/12}
+\end{center}
+
+卡的跟放ppt一样
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -511,6 +1079,10 @@ _RegSet* do_syscall(_RegSet *r) {
 \subsection{实现loader后出现段错误}
 在我们最开始实现loader时，运行出现了段错误的问题，第一反应是肯定是代码书写有问题，心想坏了，这刚刚开始指定是以前代码的问题，顾花了一下午找之前代码中的问题，没找到，第一次破防。
 
+\begin{center}
+  \includegraphics*[scale=0.1]{pic/报错1}
+\end{center}
+
 然后想起来，可以查看反汇编代码，看出了端倪，生成了一堆没啥用的不知道是干啥的东西，导致程序过大越界了。意识到是因该是编译器的问题，上stackoverflow查找，在nano下的makefile 中加入如下参数，问题解决。
 \begin{lstlisting}[language = bash]
 OBJCOPY_FLAG = -S --remove-section .note.gnu.property --set-section-flags .bss=alloc,contents -O binary
@@ -521,151 +1093,43 @@ OBJCOPY_FLAG = -S --remove-section .note.gnu.property --set-section-flags .bss=a
 \begin{center}
   \includegraphics*[scale = 0.3]{pic/报错2}
 \end{center}
-可以看到是因为gate\_addr的值大于了cpu.idtr.base + cpu.idtr.limit的值。我们利用Log进行输出，得到的结果比较出乎意料，cpu.idtr.base和cpu.idtr.limit的值都是0。总以为是哪里写错了，又从头到尾撸了一遍代码，没啥问题，最终发现是nanos-lite/src/main.c中的HAS ASY宏没打开，这意味着根本没有调用init\_irq()函数，也意味着没有调用位于 nexus-am/am/arch/x86-nemu/src/asye.c 中的\_asye\_init()函数，导致IDT根本都没初始化，加上了这个宏之后，错误解决。
+可以看到是因为gate\_addr的值大于了cpu.idtr.base + cpu.idtr.limit的值。我们利用Log进行输出，得到的结果比较出乎意料，cpu.idtr.base和cpu.idtr.limit的值都是0。总以为是哪里写错了，又从头到尾撸了一遍代码，没啥问题，最终发现是nanos-lite/src/main.c中的HAS ASY宏没打开，这意味着根本没有调用init\_irq()函数，也意味着没有调用位于 nexus-am/am/arch/x86-nemu/src/asye.c 中的\_asye\_init()函数，导致IDT根本都没初始化，加上了这个宏之后，错误解决了。
 
+\subsection{CS指令}
+这个地方，是我们实现Hello world运行的时候遇到的。按照指导书上的说法，我们做到这一步，嗨嗨嗨，不可能顺利的。果然，出现了如下如下的报错
+\begin{center}
+  \includegraphics*[scale = 0.25]{pic/报错3}
+\end{center}
+我觉得不合理，指令应该都实现了，无奈查找i386手册，发现这个应该是一个叫CS的指令（闻所未闻）。然后，我觉得这应该是64位系统的问题或者是ubuntu 20之类所带来的问题，在网上查阅资料后，感觉这个指令好像很endbr32差不多，没啥用，故在exe.c中设置为nop，怀着忐忑的心情又跑了一下，果然可以了，解决成功（希望以后不要爆雷）。
 
+\subsection{open\_offset和disk\_offset的区别}
+在我们实现了helloworld的需求之后，我们进行了运行测试，发现了如下的报错
+\begin{center}
+  \includegraphics*[scale = 0.25]{pic/报错5}
+\end{center}
 
+这个问题，本以为应该又是环境问题导致的，然后进行一顿找，试了好多种方法都没有解决。心灰意冷的时候开始对代码进行解决，发现，我们错将open\_offset全部当成了disk\_offset进行处理，这导致程序直接越界了。更改过后进行测试，程序无误。
 
+\subsection{显存}
+当我们实现显存的时候，我们兴冲冲的进行测试，然而发生了这样的问题。在我们运行程序的时候，出现了以下的问题：
+\begin{center}
+  \includegraphics*[scale = 0.25]{pic/baocuo}
+\end{center}
+因为我们用的是腾讯云服务器，图形化界面是通过vcn连接的，性能非常垃圾，所以我们理所应当的认为这是卡住了的问题，多试几次就好了，但是并没有什么用，这时候我意识到应该是代码处理问题，开始找代码中的错误。嗨嗨嗨，发现由于我的粗心，加载的并不是bin/bmptest，而是一个不知道是什么的乱七八糟的东西，将这个执行路径更改之后，本以为没啥问题了，谁知道真的噩梦才刚开始。
 
+我们跑了一下代码，发现少了一个指令，查看i386手册，返现缺失的指令是movsb，听起来名字有些问题。我们竟一步查看手册，想要实现这个指令，发现需要额外的寄存器，ds和es。我们于是在cpu中添加了段寄存器ds和es，并修改了popa和pusha，本以为可以运行，结果又少了别因为64位高版本ubuntu导致的其他的指令。这时候心态已经崩掉了，在一点多准备换回32位的机器，因为电脑apple m1芯片的问题，还是只能租云服务器，于是租了一个阿里云，上传了环境。
+\begin{center}
+  \includegraphics*[scale = 0.3]{pic/fuq}
+\end{center}
+花了一个多小时，配置了可视化环境和基础的运行环境，然后发现虽然我的终端可以轻松连上远程服务器，但是vs code始终配不上，出现以下问题。
+\begin{center}
+  \includegraphics*[scale = 0.3]{pic/hhh}
+\end{center}
+最终我意识到vs code不支持ubuntu16这种老版本的ssh连接，心态有些不稳定了。然后啊，虽然新的环境的图形化界面装好了，但是官网提供的网页版vnc连接卡的不行，根本无法运行，按一下停好久好久，于是准备自己配vnc连接。反复试了x11vnc等一系列工具后，从最初的网络端口号呗阿里云屏蔽（在防火墙设置中可以进行设置打开，这是啥安全原因防止dns攻击之类的），到密码一直报错（密码存储的文件需要管理员权限才能读取，需要给予管理员权限）等等等，到最终非常好，直接黑屏了，网页版也打不开了，啥都不行了，心态彻底爆炸了。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-% \section{概述}
-% %——————————————————————————————————————
-% \subsection{第一节}
-% 如图\ref{fig:1}所示
-% \begin{figure}[H]
-%     \centering
-%     \includegraphics[scale=0.3]{NKU.png}
-%     \caption{Caption}
-%     \label{fig:1}
-% \end{figure}
-
-% 表
-% \begin{table}[!htbp]
-%   \centering
-%   \begin{tabular}{ccccccccccc}
-%   \toprule  
-%   N/n$\backslash$Algo& naive-conv& naive-pool& omp-conv& omp-pool\\
-%   \midrule
-%   64/2& 0.0167& 0.01255& 0.04142& 0.03799\\
-%   64/4& 0.03599&0.0394& 0.0458& 0.0421\\
-%   \bottomrule
-%   \end{tabular}
-%   \caption{性能测试结果(4线程)(单位:ms)}
-% \end{table}
-
-% 带单元格表格
-% \begin{table}[!htbp]
-%   \centering
-%   \begin{tabular}{|c|c|c|c|c|c|c|}
-%   \hline
-%   \multicolumn{2}{|c|}{ \multirow{2}*{$Cost$} }& \multicolumn{5}{c|}{To}\\
-%   \cline{3-7}
-%   \multicolumn{2}{|c|}{}&$A$&$B$&$C$&$D$&$E$\\
-%   \hline
-%   \multirow{3}*{From}&$B$&7&0&1&3&8\\
-%   \cline{2-7}
-%   &$C$&8&1&0&2&7\\
-%   \cline{2-7}
-%   &$D$&8&3&2&0&5\\
-%   \hline
-%   \end{tabular}
-%   \caption{结点C距离向量表(无毒性逆转)}
-% \end{table}
-
-% %——————————————————————————————————————
-% \subsection{第二节}
-% 伪代码
-
-% \begin{breakablealgorithm} 
-%   \caption{初始化obj文件信息——对应MeshSimplify类中readfile函数,Face类calMatrix函数} 
-%   \begin{algorithmic}[1] %每行显示行号  
-%       \Require obj文件,顶点、边、面列表
-%       \Ensure 是否读取成功
-%       \Function {calMatrix}{$Face$}  
-%               \State $normal \gets e1×e2$  
-%               \State $normal \gets normal/normal.length$
-%               \State $temp[] \gets {normal.x, normal.y, normal.z, normal· Face.v1}$
-%               \State $Matrix[i][j]=temp[i] * temp[j]$ 
-%               \State \Return{$Matrix$}  
-%       \EndFunction
-%       \State 根据obj的v和f区分点面信息,读取并加入列表
-%       \State $scale \gets $记录点坐标中距离原点最远的分量,以便后续OpenGL进行显示
-%       \State $ori \gets $记录中心点,便于OpenGL显示在中心位置,避免有的obj偏移原点较多
-%       \State 根据三角面片信息,计算一个面的三条边
-%       \State 计算每个面的矩阵$\gets calMatrix$
-%       \State 将每个面的矩阵加到各点,由点维护\\
-%       \Return True
-%   \end{algorithmic}  
-% \end{breakablealgorithm}
-
-% 代码
-% \begin{lstlisting}[title=逐列访问平凡算法,frame=trbl,language={C++}]
-%   void ord()   
-%   {
-%       double head,tail,freq,head1,tail1,timess=0; // timers
-%       init(N);
-%       QueryPerformanceFrequency((LARGE_INTEGER *)&freq );
-%       QueryPerformanceCounter((LARGE_INTEGER *)&head);
-%       for (int i=0; i<NN; i++)
-%           for (int j=0; j<NN; j++)
-%               col_sum[i] += (b[j][i]*a[j]);
-%       QueryPerformanceCounter ((LARGE_INTEGER *)& tail) ;
-%       cout << "\nordCol" <<(tail-head)*1000.0 / freq<< "ms" << endl;
-%   }
-% \end{lstlisting}
-
-
-% %——————————————————————————————————————
-% \subsection{第三节}
-
-% 参考文献\cite{adams1995hitchhiker}\cite{shin2016deep}
-    
-% 多行公式
-% \begin{align}
-%   a+b = a + b \\
-%   \frac{a+b}{a-b}
-% \end{align}
-
-% 行内公式：$\sum^N_{i=1}$
-
-% \textbf{超链接}  \href{http://youtube.com/}{YouTube}
-
-% 带标号枚举
-% \begin{enumerate}
-%   \item 1
-%   \item 2
-% \end{enumerate}
-
-% 不带标号枚举
-% \begin{itemize}
-%   \item 1
-%   \item 2
-% \end{itemize}
-
-% \xiaosi{切换字体大小}
-
-% %----------------------------------------------------------------
-% \section{总结}
-
-% %----------------------------------------------------------------
-
+这时候已经早上四点了，万念俱灰，想到了最后一个救命稻草，如果是编译出来 好多新的环境，那我试试换个低版本的gcc看看能不能结局。我下载了gcc7版本（没错仍然不是推荐的gcc5，ubuntu20貌似都装不了gcc5）并将默认的gcc路径进行了软连接，使用gcc7进行测试，貌似还是不行。正当想摆烂放弃的时候，我突然想到，有没有一种可能，是我没在最外层的环境中进行make clean，导致别的一些文件是用新版本的gcc编译的而导致错误，于是进行了clean后继续做最后一次尝试，成功了！！！屏幕上出现了logo，实验可以继续进行了！
+\begin{center}
+  \includegraphics*[scale=0.6]{pic/A}
+\end{center}
+虽然当时已经马上要到早上五点了，马上就该去做核酸大筛了，但是我还是好激动，甚至还发了一条朋友圈，虽然过程很艰难，但是历经好多弯路最终结局问题使程序顺利运行的感觉，真的是语言无法描述的。
 \end{document}
