@@ -11,6 +11,7 @@
 \usepackage{booktabs} %表格
 \usepackage{multirow}
 \usepackage{color}
+\usepackage{makebox}
 \newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}  %表格强制换行
 %-------------------------字体设置--------------
 \usepackage{times} 
@@ -993,82 +994,76 @@ make_EHelper(cwtl) {
 卡的跟放ppt一样
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+\section{必答题}
+\textbf{
+文件读写的具体过程 仙剑奇侠传中有以下行为:
+\begin{itemize}
+  \item 在 navy-apps/apps/pal/src/global/global.c 的 PAL\_LoadGame()中通过 fread()读取游戏存档
+  \item 在 navy-apps/apps/pal/src/hal/hal.c 的 redraw()中通过 NDL\_DrawRect()更新屏幕
+\end{itemize}
+请结合代码解释仙剑奇侠传,库函数,libos,Nanos-lite,AM,NEMU 是如何相互协助,来分别完成游戏存档的读取和屏幕的更新.
+}
+
+AM 从运行程序的视角刻画了一台计算机应该具备的功能，是对一台抽象计算机的概念定义，NEMU 通过程序来实现而不是电路对这台抽象计算机的具体实现。
+
+查看global.c中的代码
+\begin{lstlisting}[language = C++]
+  static INT PAL_LoadGame(LPCSTR         szFileName)
+     fp = fopen(szFileName, "rb");
+    
+     fread(&s, sizeof(SAVEDGAME), 1, fp);
+     fclose(fp);
+  }
+\end{lstlisting}
+
+该函数的参数传入的就是需要读取的存档名，然后调用fopen打开目的存档的文件。然后，我们使用是stdio.h的带缓冲的标准的IO库函数fread函数将存档中的信息读取到static saved类型的变量s中，调用这个带缓冲的函数，其在调用 fwrite 的时候，先把数据放在缓冲区。不直接使用系统调用，切换到内核态。而是等到缓冲区满等条件 满足时，再一次性调用，把数据拷贝到内核空间，这样减少使用 read 和 write 调用的次数，也就是用户态和内核态切换的次数。
+
+查看hal.c中的代码
+\begin{lstlisting}[language = C++]
+  static void redraw() {
+    for (int i = 0; i < W; i ++)
+      for (int j = 0; j < H; j ++)
+        fb[i + j * W] = palette[vmem[i + j * W]];
+    NDL_DrawRect(fb, 0, 0, W, H);
+    NDL_Render();
+  }
+  \end{lstlisting}
+
+  对于屏幕的更新，在 redraw函数中先用 palette 调色板给 fb 像素组对应元素赋值。调用 ndl.c 中实现的NDL\_DrawRect 库函数，该库函数根据has\_nwm全局变量实现了将stdout的值写到fb数组中和将fb值赋给canvas的功能。 调用NDL\_Render函数，该库函数根据has\_nwm全局变量实现了两种反向功能，主要是把输出缓冲区里的东西打印到标准输出设备上和打开显存文件/dev/fb文件，读取数据到canvas上；并将显存文件数据打印到标准输出设备上。实际上，这两个函数都是navy\_apps/libs中的函数。 而这些libs中的函数，都是使用stdio.h的库函数来完成的。在stdio.h的库函数中又操纵了一些static类型的和屏幕相关的变量canvas, canvas\_w, canvas\_h等，在navy-apps/apps/litenes/include/fce.h下定义。
+  而stdio.h中定义的许多库函数实际上都调用了在nanos-lite中由简易操作系统中处理解决的和完成的系统中断和系统调用。
+
+\begin{lstlisting}[language = C++]
+int NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h) {
+if (has_nwm) {
+  for (int i = 0; i < h; i ++) {
+    printf("\033[X%d;%d", x, y + i);
+    for (int j = 0; j < w; j ++) {
+      putchar(';');
+      fwrite(&pixels[i * w + j], 1, 4, stdout);
+    }
+    printf("d\n");
+  }
+} else {
+  for (int i = 0; i < h; i ++) {
+    for (int j = 0; j < w; j ++) {
+      canvas[(i + y) * canvas_w + (j + x)] = pixels[i * w + j];
+} 
+} 
+}
+}
+int NDL_Render() {
+  if (has_nwm) {
+    fflush(stdout);
+  } else {
+    for (int i = 0; i < canvas_h; i ++) {
+      fseek(fbdev, ((i + pad_y) * screen_w + pad_x) * sizeof(uint32_t),
+SEEK_SET);
+      fwrite(&canvas[i * canvas_w], sizeof(uint32_t), canvas_w, fbdev);
+}
+    fflush(fbdev);
+  }
+}
+\end{lstlisting}
 
 
 
@@ -1132,4 +1127,10 @@ OBJCOPY_FLAG = -S --remove-section .note.gnu.property --set-section-flags .bss=a
   \includegraphics*[scale=0.6]{pic/A}
 \end{center}
 虽然当时已经马上要到早上五点了，马上就该去做核酸大筛了，但是我还是好激动，甚至还发了一条朋友圈，虽然过程很艰难，但是历经好多弯路最终结局问题使程序顺利运行的感觉，真的是语言无法描述的。
+
+
+
+\section{实验感想}
+不要用不推荐的环境配置！不要用不推荐的环境配置！不要用不推荐的环境配置！
 \end{document}
+
