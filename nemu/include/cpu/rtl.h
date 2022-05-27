@@ -231,6 +231,19 @@ static inline rtl_load_cr(rtlreg_t* dest, int r) {
   return;
 }
 
-
+static inline rtl_store_cr(int r, const rtlreg_t* src) {
+  switch (r)
+  {
+  case 0:
+    cpu.CR0 = *src;
+    return;
+  case 3:
+    cpu.CR3 = *src;
+    return;
+  default:
+    assert(0);
+  }
+  return;
+}
 
 #endif
