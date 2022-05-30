@@ -52,7 +52,7 @@ paddr_t page_translate(vaddr_t addr, bool iswrite) {
 
     PTE *ptable = (PTE*)PTE_ADDR(pde.val);
     PTE pte = (PTE)paddr_read((uint32_t)(ptable + PTX(addr)), 4);
-    printf("hhahah%x, jhhh%x\n", pte.present, addr);
+    //printf("hhahah%x, jhhh%x\n", pte.present, addr);
     Assert(pte.present, "addr=0x%x", addr);
 
     pde.accessed=1;
