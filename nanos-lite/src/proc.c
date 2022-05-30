@@ -31,8 +31,23 @@ _RegSet* schedule(_RegSet *prev) {
   if(current != NULL) {
     current -> tf = prev;
   }
-  current = (current == &pcb[0]? &pcb[1] : &pcb[0]);
-  Log("ptr = 0x%x\n", (uint32_t)current -> as.ptr);
+  else {
+    current = &pcb[0];
+  }
+  static int num = 0;
+  static const int frequency = 1000;
+  if(current == &pcb[0]) {
+    num++;
+  }
+  else {
+    current = &pcb[0];
+  }
+  if(num == frequency) {
+    current = &pcb[1];
+    num = 0;
+  }
+  // current = (current == &pcb[0]? &pcb[1] : &pcb[0]);
+  // Log("ptr = 0x%x\n", (uint32_t)current -> as.ptr);
   _switch(&current -> as);
   return current -> tf;
 }
