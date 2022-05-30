@@ -5,7 +5,11 @@ static _RegSet* do_event(_Event e, _RegSet* r) {
   switch (e.event) {
     case _EVENT_SYSCALL:
       return do_syscall(r);
-    default: panic("Unhandled event ID = %d", e.event);
+    case _EVENT_TRAP:
+      printf("event:self-trapped\n");
+      return NULL;
+    default: 
+      panic("Unhandled event ID = %d", e.event);
   }
 
   return NULL;
