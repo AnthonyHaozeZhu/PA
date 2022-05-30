@@ -19,6 +19,11 @@ size_t events_read(void *buf, size_t len) {
       key ^= 0x8000;
       down = 1;
   }
+  if(down && key == _KEY_M) {
+    extern void switch_current_game();
+    switch_current_game();
+    Log("key down:_KEY_F12, switch current game0!");
+  }
   if(key != _KEY_NONE) {
      sprintf(buffer, "%s %s\n", down ? "kd": "ku", keyname[key]);
   }
@@ -29,11 +34,6 @@ size_t events_read(void *buf, size_t len) {
     strncpy((char*)buf, buffer,strlen(buffer));
 	  return strlen(buffer);
   } 
-  if(down && key == _KEY_M) {
-    extern void switch_current_game();
-    switch_current_game();
-    Log("key down:_KEY_F12, switch current game0!");
-  }
   Log("strlen(event)>len, return 0");
   return 0;
 }
