@@ -29,7 +29,7 @@ size_t events_read(void *buf, size_t len) {
     strncpy((char*)buf, buffer,strlen(buffer));
 	  return strlen(buffer);
   } 
-  if(down && key == _KEY_F12) {
+  if(down && key == _KEY_C) {
     extern void switch_current_game();
     switch_current_game();
     Log("key down:_KEY_F12, switch current game0!");
