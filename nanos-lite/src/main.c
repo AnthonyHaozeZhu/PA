@@ -31,7 +31,7 @@ int main() {
   init_fs();
 
   extern void load_prog(const char *filename);
-  load_prog("/bin/hello");
+  load_prog("/bin/pal");
 
   panic("Should not reach here");
 }
