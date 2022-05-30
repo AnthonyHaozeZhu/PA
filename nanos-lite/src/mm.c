@@ -21,6 +21,7 @@ int mm_brk(uint32_t new_brk) {
     current -> cur_brk = current -> max_brk = new_brk;
   }
   else {
+    Log("ssssss");
     if(new_brk > current -> max_brk) {
       uint32_t first = PGROUNDUP(current -> max_brk);
       uint32_t end = PGROUNDDOWN(new_brk);
