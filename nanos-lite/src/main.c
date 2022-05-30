@@ -33,6 +33,7 @@ int main() {
   extern void load_prog(const char *filename);
   load_prog("/bin/pal");
   load_prog("/bin/hello");
+  load_prog("/bin/videotest");
 
   _trap();
 
