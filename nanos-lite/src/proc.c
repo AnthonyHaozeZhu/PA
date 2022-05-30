@@ -28,5 +28,11 @@ void load_prog(const char *filename) {
 }
 
 _RegSet* schedule(_RegSet *prev) {
-  return NULL;
+  if(current != NULL) {
+    current -> tf = prev;
+  }
+  current = &pcb[0];
+  Log("ptr = 0x%x\n", (uint32_t)current -> as.ptr);
+  _switch(&current -> as);
+  return current -> tf;
 }
