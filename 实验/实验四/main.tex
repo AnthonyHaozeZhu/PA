@@ -132,15 +132,15 @@ numbers=left,
     \includegraphics[width=0.8\textwidth]{NKU.png}\\[1cm]    
     \textsc{\Huge \kaishu{\textbf{南\ \ \ \ \ \ 开\ \ \ \ \ \ 大\ \ \ \ \ \ 学}} }\\[0.9cm]
     \textsc{\huge \kaishu{\textbf{计\ \ 算\ \ 机\ \ 学\ \ 院}}}\\[0.5cm]
-    \textsc{\Large \textbf{编译原理作业报告}}\\[0.8cm]
+    \textsc{\Large \textbf{计算机系统设计}}\\[0.8cm]
     \HRule \\[0.9cm]
-    { \LARGE \bfseries 标题标题标题}\\[0.4cm]
+    { \LARGE \bfseries PA实验四报告}\\[0.4cm]
     \HRule \\[2.0cm]
     \centering
     \textsc{\LARGE \kaishu{朱浩泽\ 1911530}}\\[0.5cm]
     \textsc{\LARGE \kaishu{年级\ :\ 2019级}}\\[0.5cm]
     \textsc{\LARGE \kaishu{专业\ :\ 计算机科学与技术}}\\[0.5cm]
-    \textsc{\LARGE \kaishu{指导教师\ :\ 王刚}}\\[0.5cm]
+    \textsc{\LARGE \kaishu{指导教师\ :\ 卢冶}}\\[0.5cm]
     \vfill
     {\Large \today}
     \end{center}
@@ -148,12 +148,6 @@ numbers=left,
 % -------------摘------要--------------
 \newpage
 \thispagestyle{empty}
-\renewcommand{\abstractname}{\kaishu \sihao \textbf{摘要}}
-    \begin{abstract}
-
-        \noindent  %顶格
-        \textbf{\\\ 关键字：Parallel}\textbf{} \\\ \\\
-    \end{abstract}
 % ----------------------------------------------------------------
 \tableofcontents
 % ----------------------------------------------------------------
@@ -161,126 +155,524 @@ numbers=left,
 \watermark{60}{10}{NKU}
 \setcounter{page}{1}
 \section{概述}
-%——————————————————————————————————————
-\subsection{第一节}
-如图\ref{fig:1}所示
-\begin{figure}[H]
-    \centering
-    \includegraphics[scale=0.3]{NKU.png}
-    \caption{Caption}
-    \label{fig:1}
-\end{figure}
+\subsection{实验目的}
+\begin{itemize}
+  \item 学习虚拟内存映射，并实现分页机制
+  \item 学习上下文切换的基本原理并实现上下文切换、进程调度与分时多任务 
+  \item 学习硬件中断并实现时钟中断
+\end{itemize}
+\subsection{实验内容}
+\begin{itemize}
+  \item 虚拟地址空间的作用，实现分页机制，并让用户程序运行在分页机制上
+  \item 实现内核自陷、上下文切换与分时多任务
+  \item 解决阶段二分时多任务的隐藏bug:改为使用时钟中断来进行进程调度
+  \item 实现当前运行游戏的切换，使不同的游戏与hello程序分时运行
+\end{itemize}
 
-表
-\begin{table}[!htbp]
-  \centering
-  \begin{tabular}{ccccccccccc}
-  \toprule  
-  N/n$\backslash$Algo& naive-conv& naive-pool& omp-conv& omp-pool\\
-  \midrule
-  64/2& 0.0167& 0.01255& 0.04142& 0.03799\\
-  64/4& 0.03599&0.0394& 0.0458& 0.0421\\
-  \bottomrule
-  \end{tabular}
-  \caption{性能测试结果(4线程)(单位:ms)}
-\end{table}
-
-带单元格表格
-\begin{table}[!htbp]
-  \centering
-  \begin{tabular}{|c|c|c|c|c|c|c|}
-  \hline
-  \multicolumn{2}{|c|}{ \multirow{2}*{$Cost$} }& \multicolumn{5}{c|}{To}\\
-  \cline{3-7}
-  \multicolumn{2}{|c|}{}&$A$&$B$&$C$&$D$&$E$\\
-  \hline
-  \multirow{3}*{From}&$B$&7&0&1&3&8\\
-  \cline{2-7}
-  &$C$&8&1&0&2&7\\
-  \cline{2-7}
-  &$D$&8&3&2&0&5\\
-  \hline
-  \end{tabular}
-  \caption{结点C距离向量表(无毒性逆转)}
-\end{table}
-
-%——————————————————————————————————————
-\subsection{第二节}
-伪代码
-
-\begin{breakablealgorithm} 
-  \caption{初始化obj文件信息——对应MeshSimplify类中readfile函数,Face类calMatrix函数} 
-  \begin{algorithmic}[1] %每行显示行号  
-      \Require obj文件,顶点、边、面列表
-      \Ensure 是否读取成功
-      \Function {calMatrix}{$Face$}  
-              \State $normal \gets e1×e2$  
-              \State $normal \gets normal/normal.length$
-              \State $temp[] \gets {normal.x, normal.y, normal.z, normal· Face.v1}$
-              \State $Matrix[i][j]=temp[i] * temp[j]$ 
-              \State \Return{$Matrix$}  
-      \EndFunction
-      \State 根据obj的v和f区分点面信息,读取并加入列表
-      \State $scale \gets $记录点坐标中距离原点最远的分量,以便后续OpenGL进行显示
-      \State $ori \gets $记录中心点,便于OpenGL显示在中心位置,避免有的obj偏移原点较多
-      \State 根据三角面片信息,计算一个面的三条边
-      \State 计算每个面的矩阵$\gets calMatrix$
-      \State 将每个面的矩阵加到各点,由点维护\\
-      \Return True
-  \end{algorithmic}  
-\end{breakablealgorithm}
-
-代码
-\begin{lstlisting}[title=逐列访问平凡算法,frame=trbl,language={C++}]
-  void ord()   
+\section{阶段一： 实现分页机制}
+\subsection{基础结构}
+首先修改寄存器结构体，在 nemu/include/cpu/reg.h当中，添加CR0和CR3两个控制寄存器：
+\begin{lstlisting}[language=C++]
+struct IDTR
   {
-      double head,tail,freq,head1,tail1,timess=0; // timers
-      init(N);
-      QueryPerformanceFrequency((LARGE_INTEGER *)&freq );
-      QueryPerformanceCounter((LARGE_INTEGER *)&head);
-      for (int i=0; i<NN; i++)
-          for (int j=0; j<NN; j++)
-              col_sum[i] += (b[j][i]*a[j]);
-      QueryPerformanceCounter ((LARGE_INTEGER *)& tail) ;
-      cout << "\nordCol" <<(tail-head)*1000.0 / freq<< "ms" << endl;
+    /* data */
+    uint32_t base;
+    uint16_t limit; 
+  } idtr;
+  
+  rtlreg_t cs;
+  rtlreg_t es; // 配x64
+  rtlreg_t ds;
+  uint32_t CR0;
+  uint32_t CR3;
+  bool INTR;
+} CPU_state;
+\end{lstlisting}
+然后在nemu/src/monitor/monitor.c的resart函数中初始化CR0的值
+\begin{lstlisting}[language = C++]
+static inline void restart() {
+  /* Set the initial instruction pointer. */
+  cpu.eip = ENTRY_START;
+  cpu.cs = 8;
+  cpu.CR0 = 0x60000011;
+  unsigned int origin = 2;
+  memcpy(&cpu.eflags, &origin, sizeof(cpu.eflags));
+
+#ifdef DIFF_TEST
+  init_qemu_reg();
+#endif
+}
+\end{lstlisting}
+打开 HAS\_PTE 宏，让Nanos-lite 在初始化的时候首先调用 init\_mm()函数。在nanos-lite目录下make run，报错如下：
+\begin{center}
+  \includegraphics*[scale = 0.5]{img/1}
+\end{center}
+
+到目前这个阶段而言，init\_mm()函数的工作主要有两方面，一是将空闲物理页的首地址设置为堆区首地址；二是调用\_pte\_init()函数，填写内核的页目录和页表，设置控制寄存器，开启分页机制。\\ 
+于是，我们首先需要实现新的指令函数，来完成对两个控制寄存器的操作。相关代码在 nemu/include/cpu/rtl.h中添加。\\ 
+首先完成nemu/include/cpu/rtl.h中的rtl\_store\_cr(int r, const rtlreg\_t* src)函数，实现对控制信息的存储，根据情况把参数保存到CR0寄存器或CR3寄存器当中。
+\begin{lstlisting}[language = C++]
+static inline rtl_store_cr(int r, const rtlreg_t* src) {
+  switch (r)
+  {
+  case 0:
+    cpu.CR0 = *src;
+    return;
+  case 3:
+    cpu.CR3 = *src;
+    return;
+  default:
+    assert(0);
   }
+  return;
+}
+\end{lstlisting}
+
+完成nemu/include/cpu/rtl.h中的rtl\_load\_cr(rtlreg\_t* dest, int r)函数，实现对控制信息的读取，根据情况把CR0或CR3寄存器当中存储的信息读取到dest参数中。
+
+\begin{lstlisting}[language = C++]
+static inline rtl_load_cr(rtlreg_t* dest, int r) {
+  switch (r)
+  {
+  case 0:
+    *dest = cpu.CR0;
+    return;
+    break;
+  case 3:
+    *dest = cpu.CR3;
+    return;
+  default:
+    assert(0);
+  }
+  return;
+}
+\end{lstlisting}
+
+然后完成init\_mm()函数遇到的指令，即CR3或CR0的mov操作。
+在 nemu/src/cpu/decode/decode.c中实现译码函数，其中make\_DHelper(mov\_load\_cr)完成的是把控制寄存器中所存储的值进行加载读取的操作，make\_DHelper(mov\_load\_cr)完成的是把目标寄存器的值保存到控制寄存器的操作。
+\begin{lstlisting}[language = C++]
+make_DHelper(mov_load_cr) {
+  decode_op_rm(eip, id_dest, false, id_src, false);
+  rtl_load_cr(&id_src -> val, id_src -> reg);
+#ifdef DEBUG
+  snprintf(id_src -> str, 5, "%%cr%d", id_dest -> reg);
+#endif
+}
+
+make_DHelper(mov_store_cr) {
+  decode_op_rm(eip, id_src, true, id_dest, false);
+#ifdef DEBUG
+  snprintf(id_src -> str, 5, "%%cr%d", id_dest -> reg);
+#en
 \end{lstlisting}
 
 
-%——————————————————————————————————————
-\subsection{第三节}
+最后在nemu/src/cpu/exec/data-mov.c中添加实际的指令函数make\_EHelper(mov\_store\_cr)，来完成控制寄存器的store操作。
+\begin{lstlisting}[language = C++]
+make_EHelper(mov_store_cr) {
+  rtl_store_cr(id_dest -> reg, &id_src -> val);
+  print_asm_template2(mov);
+}
+\end{lstlisting}
 
-参考文献\cite{adams1995hitchhiker}\cite{shin2016deep}
+
+到此，分页机制的数据结构基础部分我们已经基本完成。通过设置断点，我们可以看到如下内容：
+\begin{center}
+  \includegraphics*[scale = 0.25]{img/2}
+  \includegraphics*[scale = 0.25]{img/3}
+\end{center}
+
+\subsection{虚拟地址的访问的转换}
+接下来需要对nemu/src/memory/memory.c中的 vaddr\_read()和 vaddr\_write()函数作少量修改、实现page\_translate()函数，使得所有虚拟地址的访问都需要经过分页地址的转换。
+
+
+首先，在nemu/src/memory/memory.c中添加我们需要的宏定义。
+\begin{lstlisting}[language = C++]
+#define PTXSHFT 12 //线性地址偏移量
+#define PDXSHFT 22 //线性地址偏移量 
+
+#define PTE_ADDR(pte) ((uint32_t)(pte) & ~0xfff)
+#define PDX(va) (((uint32_t)(va) >> PDXSHFT) & 0x3ff)
+#define PTX(va) (((uint32_t)(va) >> PTXSHFT) & 0x3ff)
+#define OFF(va) ((uint32_t)(va) & 0xfff)
+\end{lstlisting}
+vaddr\_read(vaddr\_t addr, int len)函数实现了读地址时的虚拟地址转换。
+\begin{lstlisting}[language = C++]
+uint32_t vaddr_read(vaddr_t addr, int len) {
+  if(PTE_ADDR(addr) != PTE_ADDR(addr + len -1)) {
+    // printf("error: the data pass two pages:addr=0x%x, len=%d!\n", addr, len);
+    assert(0);
+  }
+  else {
+    paddr_t paddr = page_translate(addr, false);
+    return paddr_read(paddr, len);
+  }
+  // return paddr_read(addr, len);
+}
+\end{lstlisting}
+vaddr\_write(vaddr\_t addr, int len)函数实现了写地址时的虚拟地址转换。
+\begin{lstlisting}[language = C++]
+  void vaddr_write(vaddr_t addr, int len, uint32_t data) {
+  if(PTE_ADDR(addr) != PTE_ADDR(addr+len-1)) {
+    // printf("error: the data pass two pages:addr=0x%x, len=%d!\n", addr, len);
+    assert(0);
+    }
+  }
+  else {
+    paddr_t paddr = page_translate(addr, true);
+    paddr_write(paddr, len, data);
+  }
+  // paddr_write(addr, len, data);
+}
+\end{lstlisting}
+其中，如果存在跨页读写的现象，暂且不做处理，直接结束程序。
+这里的page\_translate()函数是实验指导书要求实现的页面地址转换函数，接下来我们就需要对这个函数进行编写。
+\begin{lstlisting}[language = C++]
+paddr_t page_translate(vaddr_t addr, bool iswrite) {
+  CR0 cr0 = (CR0)cpu.CR0;
+  if(cr0.paging && cr0.protect_enable) {
+    CR3 crs = (CR3)cpu.CR3;
+
+    PDE *pgdirs = (PDE*)PTE_ADDR(crs.val);
+    PDE pde = (PDE)paddr_read((uint32_t)(pgdirs + PDX(addr)), 4);
+
+    PTE *ptable = (PTE*)PTE_ADDR(pde.val);
+    PTE pte = (PTE)paddr_read((uint32_t)(ptable + PTX(addr)), 4);
+    //printf("hhahah%x, jhhh%x\n", pte.present, addr);
+    Assert(pte.present, "addr=0x%x", addr);
+
+    pde.accessed=1;
+    pte.accessed=1;
+    if(iswrite) {
+      pte.dirty=1;
+    }
+    paddr_t paddr = PTE_ADDR(pte.val) | OFF(addr);
+    // printf("vaddr=0x%x, paddr=0x%x\n", addr, paddr);
+    return paddr;
+  }
+	return addr;
+}
+\end{lstlisting}
+在page\_translate(vaddr\_t addr, bool\ iswrite)函数当中，参数addr代表待处理页面的地址，iswrite是读或写的标志位，若需要进行的是读操作，该参数就被设置为false，若需要进行写操作，就被设置为true。\\
+这个函数需要依次判断页目录、页表是否存在，并根据读写情况对页面进行脏位标记。如果页面不存在，需要呈现错误信息并结束程序。
+
+运行程序，可以发现，这时候的虚拟地址和物理地址是相同的，我们的初步分页算法实现成功。
+
+\begin{center}
+  \includegraphics*[scale = 0.28]{img/4}
+\end{center}
+但这个算法只能在单页面内有效，如果出现了跨页的情况，就会按我们在vaddr\_read()和vaddr\_write()函数中所设定的一样，结束程序。
+\begin{center}
+  \includegraphics*[scale = 0.28]{img/5}
+\end{center}
+为了解决跨页问题，我们还需要进一步修改nemu/src/memory/memory.c中的这两个读写函数。
+\begin{lstlisting}[language = C++]
+uint32_t vaddr_read(vaddr_t addr, int len) {
+  if(PTE_ADDR(addr) != PTE_ADDR(addr + len -1)) {
+    // printf("error: the data pass two pages:addr=0x%x, len=%d!\n", addr, len);
+    // assert(0);
+    int num1 = 0x1000 - OFF(addr);
+    int num2 = len - num1;
+    paddr_t paddr1 = page_translate(addr, false);
+    paddr_t paddr2 = page_translate(addr + num1, false);
+
+    uint32_t low = paddr_read(paddr1, num1);
+    uint32_t high = paddr_read(paddr2, num2);
+
+    uint32_t result = high << (num1 * 8) | low;
+    return result;
+  }
+  else {
+    paddr_t paddr = page_translate(addr, false);
+    return paddr_read(paddr, len);
+  }
+  // return paddr_read(addr, len);
+}
+\end{lstlisting}
+如果出现了跨页的情况，就分高低页进行读取，用两个num局部变量记录高低页的字节数，paddr记录高低页对应物理地址，再进行整合读取。\\
+跨页写入的情况和跨页读取类似。
+\begin{lstlisting}[language = C++]
+void vaddr_write(vaddr_t addr, int len, uint32_t data) {
+  if(PTE_ADDR(addr) != PTE_ADDR(addr+len-1)) {
+    // printf("error: the data pass two pages:addr=0x%x, len=%d!\n", addr, len);
+    // assert(0);
+    if(PTE_ADDR(addr) != PTE_ADDR(addr + len -1)) {
+      int num1 = 0x1000-OFF(addr);
+      int num2 = len -num1;
+      paddr_t paddr1 = page_translate(addr, true);
+      paddr_t paddr2 = page_translate(addr + num1, true);
+
+      uint32_t low = data & (~0u >> ((4 - num1) << 3));
+      uint32_t high = data >> ((4 - num2) << 3);
+
+      paddr_write(paddr1, num1, low);
+      paddr_write(paddr2, num2, high);
+      return;
+    }
+  }
+  else {
+    paddr_t paddr = page_translate(addr, true);
+    paddr_write(paddr, len, data);
+  }
+  // paddr_write(addr, len, data);
+}
+\end{lstlisting}
+完善这两个函数之后，跨页问题就得到了解决，程序可以正确运行。
+\begin{center}
+  \includegraphics*[scale = 0.28]{img/7}
+  \includegraphics*[scale = 0.32]{img/8}
+\end{center}
+\subsection{让用户程序运行在分页机制上}
+实现了分页机制之后，我们回归到最初的目的：让用户程序能够分时运行。所以本阶段这部分内容需要将用户程序也运行在我们已经实现好的分页机制上。先按指导书修改navy¬-apps/Makefile.compile，把链接地址改成0x8048000：
+\begin{lstlisting}
+ifeq ($(LINK), dynamic)
+  CFLAGS   += -fPIE
+  CXXFLAGS += -fPIE
+  LDFLAGS  += -fpie -shared
+else
+  LDFLAGS += -Ttext 0x8048000
+endif
+\end{lstlisting}
+同时也相对应地修改nanos-lite/src/loader.c当中对DEFAULT\_ENTRY的宏定义：
+\begin{lstlisting}[language = C++]
+#define DEFAULT_ENTRY ((void *)0x8048000)
+\end{lstlisting}
+运行dummy报缺页错误，这是因为我们尚未实现页的分配和映射，所以运行会有问题。
+\begin{center}
+  \includegraphics*[scale = 0.2]{img/6}
+\end{center}
+
+于是，在nexus-am/am/arch/x86-nemu/src/pte.c当中实现\_map()函数。这个函数的具体功能是将虚拟地址空间 p 中的虚拟地址 va 映射到物理地址 pa，通过 p->ptr 可以获取页目录的基地址；如果映射过程中发现需要申请新的页，就调用palloc\_f()函数来完成。
+\begin{lstlisting}[language = C++]
+void _map(_Protect *p, void *va, void *pa) {
+  if(OFF(va) || OFF(pa)) {
+    // printf("page not aligned\n");
+    return;
+  }
+
+  PDE *dir = (PDE*) p -> ptr;
+	PTE *table = NULL;
+	PDE *pde = dir + PDX(va);
+	if(!(*pde & PTE_P)) {
+		table = (PTE*) (palloc_f());
+		*pde = (uintptr_t) table | PTE_P;
+	}
+	table = (PTE*) PTE_ADDR(*pde);
+	PTE *pte = table + PTX(va);
+	*pte = (uintptr_t) pa | PTE_P;
+}
+\end{lstlisting}
+完成了页面的分配和映射，还需要让loader也按页加载。在nanos-lite/src/loader.c中对loader函数进行修改
+\begin{lstlisting}[language = C++]
+uintptr_t loader(_Protect *as, const char *filename) {
+  // TODO();
+  // ramdisk_read(DEFAULT_ENTRY, 0, RAMDISK_SIZE);
+  int fd = fs_open(filename, 0, 0);
+  Log("filename=%s,fd=%d",filename,fd);
+  // fs_read(fd, DEFAULT_ENTRY, fs_filesz(fd));
+  int size = fs_filesz(fd);
+  int ppnum = size / PGSIZE;
+  if(size % PGSIZE != 0) {
+    ppnum++;
+  }
+  void *pa = NULL;
+  void *va = DEFAULT_ENTRY;
+  for(int i = 0; i < ppnum; i++) {
+    pa = new_page();
+    _map(as, va, pa);
+    fs_read(fd, pa, PGSIZE);
+    va += PGSIZE;
+  }
+
+  fs_close(fd);
+  return (uintptr_t)DEFAULT_ENTRY;
+}
+\end{lstlisting}
+此时dummy已经可以正确运行，但仙剑奇侠传还是有一些需要进一步实现和完善的地方。为了让仙剑奇侠传在分页机制上运行，我们需要完成堆内存的映射，实现nanos-lite/src/mm.c当中的mm\_brk()函数。在PA3的实现中，我们直接让这个函数返回0，表示用户程序的堆区大小修改总是成功。但实现分页之后，用户程序运行在虚拟地址空间之上，于是我们在这个函数中完成了把新申请的堆区映射到虚拟地址空间中的工作
+\begin{lstlisting}[language = C++]
+int mm_brk(uint32_t new_brk) {
+  if(current -> cur_brk == 0) {
+    current -> cur_brk = current -> max_brk = new_brk;
+  }
+  else {
+    if(new_brk > current -> max_brk) {
+      uint32_t first = PGROUNDUP(current -> max_brk);
+      uint32_t end = PGROUNDDOWN(new_brk);
+      if((new_brk & 0xfff) == 0) {
+        end -= PGSIZE;
+      }
+      for(uint32_t va = first; va <= end; va += PGSIZE) {
+        void *pa = new_page();
+        _map(&(current -> as), (void*)va, pa);
+      }
+      current -> max_brk = new_brk;
+    }
+    current -> cur_brk = new_brk;
+  }
+  return 0;
+}
+\end{lstlisting}
+修改nanos-lite/src/syscall.c中与之对应的sys\_brk()函数
+\begin{lstlisting}[language = C++]
+int sys_brk(int addr) {
+  extern int mm_brk(uint32_t new_brk);
+  return mm_brk(addr);
+}
+\end{lstlisting}
+完成后，仙剑奇侠传已经可以正常运行，PA4第一阶段到此结束。
+\begin{center}
+  \includegraphics*[scale = 0.4]{img/8}
+\end{center}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% \section{概述}
+% %——————————————————————————————————————
+% \subsection{第一节}
+% 如图\ref{fig:1}所示
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[scale=0.3]{NKU.png}
+%     \caption{Caption}
+%     \label{fig:1}
+% \end{figure}
+
+% 表
+% \begin{table}[!htbp]
+%   \centering
+%   \begin{tabular}{ccccccccccc}
+%   \toprule  
+%   N/n$\backslash$Algo& naive-conv& naive-pool& omp-conv& omp-pool\\
+%   \midrule
+%   64/2& 0.0167& 0.01255& 0.04142& 0.03799\\
+%   64/4& 0.03599&0.0394& 0.0458& 0.0421\\
+%   \bottomrule
+%   \end{tabular}
+%   \caption{性能测试结果(4线程)(单位:ms)}
+% \end{table}
+
+% 带单元格表格
+% \begin{table}[!htbp]
+%   \centering
+%   \begin{tabular}{|c|c|c|c|c|c|c|}
+%   \hline
+%   \multicolumn{2}{|c|}{ \multirow{2}*{$Cost$} }& \multicolumn{5}{c|}{To}\\
+%   \cline{3-7}
+%   \multicolumn{2}{|c|}{}&$A$&$B$&$C$&$D$&$E$\\
+%   \hline
+%   \multirow{3}*{From}&$B$&7&0&1&3&8\\
+%   \cline{2-7}
+%   &$C$&8&1&0&2&7\\
+%   \cline{2-7}
+%   &$D$&8&3&2&0&5\\
+%   \hline
+%   \end{tabular}
+%   \caption{结点C距离向量表(无毒性逆转)}
+% \end{table}
+
+% %——————————————————————————————————————
+% \subsection{第二节}
+% 伪代码
+
+% \begin{breakablealgorithm} 
+%   \caption{初始化obj文件信息——对应MeshSimplify类中readfile函数,Face类calMatrix函数} 
+%   \begin{algorithmic}[1] %每行显示行号  
+%       \Require obj文件,顶点、边、面列表
+%       \Ensure 是否读取成功
+%       \Function {calMatrix}{$Face$}  
+%               \State $normal \gets e1×e2$  
+%               \State $normal \gets normal/normal.length$
+%               \State $temp[] \gets {normal.x, normal.y, normal.z, normal· Face.v1}$
+%               \State $Matrix[i][j]=temp[i] * temp[j]$ 
+%               \State \Return{$Matrix$}  
+%       \EndFunction
+%       \State 根据obj的v和f区分点面信息,读取并加入列表
+%       \State $scale \gets $记录点坐标中距离原点最远的分量,以便后续OpenGL进行显示
+%       \State $ori \gets $记录中心点,便于OpenGL显示在中心位置,避免有的obj偏移原点较多
+%       \State 根据三角面片信息,计算一个面的三条边
+%       \State 计算每个面的矩阵$\gets calMatrix$
+%       \State 将每个面的矩阵加到各点,由点维护\\
+%       \Return True
+%   \end{algorithmic}  
+% \end{breakablealgorithm}
+
+% 代码
+% \begin{lstlisting}[title=逐列访问平凡算法,frame=trbl,language={C++}]
+%   void ord()   
+%   {
+%       double head,tail,freq,head1,tail1,timess=0; // timers
+%       init(N);
+%       QueryPerformanceFrequency((LARGE_INTEGER *)&freq );
+%       QueryPerformanceCounter((LARGE_INTEGER *)&head);
+%       for (int i=0; i<NN; i++)
+%           for (int j=0; j<NN; j++)
+%               col_sum[i] += (b[j][i]*a[j]);
+%       QueryPerformanceCounter ((LARGE_INTEGER *)& tail) ;
+%       cout << "\nordCol" <<(tail-head)*1000.0 / freq<< "ms" << endl;
+%   }
+% \end{lstlisting}
+
+
+% %——————————————————————————————————————
+% \subsection{第三节}
+
+% 参考文献\cite{adams1995hitchhiker}\cite{shin2016deep}
     
-多行公式
-\begin{align}
-  a+b = a + b \\
-  \frac{a+b}{a-b}
-\end{align}
+% 多行公式
+% \begin{align}
+%   a+b = a + b \\
+%   \frac{a+b}{a-b}
+% \end{align}
 
-行内公式：$\sum^N_{i=1}$
+% 行内公式：$\sum^N_{i=1}$
 
-\textbf{超链接}  \href{http://youtube.com/}{YouTube}
+% \textbf{超链接}  \href{http://youtube.com/}{YouTube}
 
-带标号枚举
-\begin{enumerate}
-  \item 1
-  \item 2
-\end{enumerate}
+% 带标号枚举
+% \begin{enumerate}
+%   \item 1
+%   \item 2
+% \end{enumerate}
 
-不带标号枚举
-\begin{itemize}
-  \item 1
-  \item 2
-\end{itemize}
+% 不带标号枚举
+% \begin{itemize}
+%   \item 1
+%   \item 2
+% \end{itemize}
 
-\xiaosi{切换字体大小}
+% \xiaosi{切换字体大小}
 
-%----------------------------------------------------------------
-\section{总结}
+% %----------------------------------------------------------------
+% \section{总结}
 
-%----------------------------------------------------------------
-\newpage
-\bibliographystyle{plain}
-\bibliography{references} 
+% %----------------------------------------------------------------
+
 \end{document}
