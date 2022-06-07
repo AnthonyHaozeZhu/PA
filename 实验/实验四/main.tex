@@ -10,6 +10,7 @@
 \usepackage{enumerate}
 \usepackage{booktabs} %表格
 \usepackage{multirow}
+\usepackage{xcolor}
 \newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}  %表格强制换行
 %-------------------------字体设置--------------
 \usepackage{times} 
@@ -1041,7 +1042,54 @@ RegSet* schedule(_RegSet *prev) {
 
 
 
-\section{bug总结}
+\section{bug总结和感想}
 这一部分，总结了我在实验过程中遇到的bug，有些是因为环境问题，还有一些是因为写代码时候的粗心等问题导致的。
+\subsection{执行虚拟内存和实际内存打印时候的出现的bug}
+我们在完成page\_translate函数后，进行测试，本应该是出现虚拟地址和物理地址相同的打印，但出现如下报错：
+\begin{center}
+\includegraphics[width=0.9\textwidth]{img/报错1}
+\end{center}
+最开始以为是代码实现有问题，后来经过仔细查找比对，发现是nanos-lite/src/main.c中的加载程序出忘记修改，还是使用PA3中的如下方法进行加载：
+\begin{lstlisting}[language = C++]
+uint32_t entry = loader(NULL, "/bin/pal");
+((void (*)(void))entry)();
+\end{lstlisting}
+修改为利用load\_prog函数加载后，问题解决
+\begin{lstlisting}[language = C++]
+extern void load_prog(const char *filename);
+load_prog("/bin/pal");
+\end{lstlisting}
+\subsection{sys\_brk问题}
+在我们实现了在分页机制上运行仙剑奇侠传这一部分内容后，首先先运行了一下hello试试，结果出现了如下报错，但是dummy可以运行。（\textbf{注意：这里跟指导书上说的问题不一样，我后面发现程序陷入了死循环}）
+\begin{center}
+  \includegraphics*[scale = 0.3]{./img/3771654599408_.pic_hd.jpg}
+\end{center}
+找了好久好久，最后发现是没有make update操作，找到后好崩溃。然后运行仙剑奇侠传，又报了如下错误：
+\begin{center}
+  \includegraphics*[scale  = 0.2]{img/报错3}
+\end{center}
+这个问题应该是因为没有实现堆内存分配之类的功能吗，可是这部分代码明明刚写过。找了好久后看了指导书恍然大悟，nanos-lite/src/syscall.c中的sys\_brk函数返回值仍然是pa3中的0， 但是实际现在应该改为调用mm\_brk 来完成功能，更改后解决了这个问题。
+\begin{lstlisting}[language = C++]
+int sys_brk(int addr) {
+  extern int mm_brk(uint32_t new_brk);
+  return mm_brk(addr);
+}
+\end{lstlisting}
 
+\subsection{程序切换报错}
+在我们实现了按下F12切换程序的时候，发生了如下报错：
+\begin{center}
+  \includegraphics*[scale= 0.2]{img/报错4}
+\end{center}
+通过仔细检查后发现，问题出在了PA3中nanos-lite/src/fs.c文件中的fs\_close函数有误，close文件文件指针没置0，导致文件关闭后指针不能恢复正常，下一次打开别的文件时偏移量错误，出现报错。
+\begin{lstlisting}[language = C++]
+int fs_close(int fd) {
+  assert(fd >= 0 && fd < NR_FILES);
+  file_table[fd].open_offset = 0;
+  return 0;
+}
+\end{lstlisting}
+最开始以为这个错误很愚蠢，后来在卢老师的老师指导手册中，看到过别人也出现过这个问题，顿时感觉我们还是普遍太粗心了。
+
+做了一学期的PA实验，从最终的什么都不会到现在对计算机的体系结构有了一定的了解，这中间经历了许多的bug和艰难坎坷，但是还是会因为很多粗心的问题导致一定的错误，并找不出来。所以决定以后在写代码时逐渐降低拼写速度，解决心急的问题，认真对待每一行代码，每一个变量。
 \end{document}
