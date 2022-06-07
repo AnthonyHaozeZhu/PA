@@ -33,7 +33,7 @@
 \pagestyle{fancy}
 \lhead{\kaishu \leftmark}
 % \chead{}
-\rhead{\kaishu 编译原理作业报告}%加粗\bfseries 
+\rhead{\kaishu 计算机系统设计实验报告}%加粗\bfseries 
 \lfoot{}
 \cfoot{\thepage}
 \rfoot{}
@@ -932,6 +932,116 @@ if(down && key == _KEY_F12) {
 \begin{center}
   \includegraphics*[scale=0.35]{img/16.png}
 \end{center}
+\section{必答题}
 
+\textbf{请结合代码,解释分页机制和硬件中断是如何支撑仙剑奇侠传和 hello 程序在我们的计算机系统 (Nanos-lite, AM, NEMU)中分时运行的.}
+
+首先，我们知道nanos\_lite的入口函数是main.c，我们的第一步是首先是进行 MM 初始化，具体是将 TRM 提供的堆区起始地址作为空闲物理页的首地址，将来会通过 new\_page()函数来分配空闲的物理页。
+接着就是磁盘和设备的初始化，中断/异常初始化，以及文件系统初始化，如下：
+\begin{lstlisting}[language = C++]
+init_ramdisk();
+
+init_device();
+\end{lstlisting}
+
+然后加载需要运行的程序，执行如下:
+\begin{lstlisting}[language = C++]
+init_fs();
+
+extern void load_prog(const char *filename);
+load_prog("/bin/pal");
+load_prog("/bin/hello");
+load_prog("/bin/videotest");
+
+_trap();
+\end{lstlisting}
+
+我们在加载每一个进程的时候，会将每个加载的进程上下文保存在程序控制块PCB中。具体来说，是通过AM层的\_protect函数初始化一个虚拟地址空间并进行映射，其信息被存放在PCB的as中，接着通过 Nanos-lite 层的 loader 函数以页为单位加载用户程序， 然后通过 AM 层的 \_umake 函数创建用户进程的现场。这种映射关系使我们的所有进程储存在不同的物理空间中，从而使虚拟地址的ENTRY是相同的，所以虚拟地址会有一部分是重叠的这一问题得到解决。
+
+然后，操作系统将陷入自陷，即一个0x81号的中断入口，其定义是在nexus-am/am/arch/x86-nemu/src/asye.c中的\_asye\_init中定义的idt中断向量表中定义的
+\begin{lstlisting}[language = C++]
+void _asye_init(_RegSet*(*h)(_Event, _RegSet*)) {
+  // initialize IDT
+  for (unsigned int i = 0; i < NR_IRQ; i ++) {
+    idt[i] = GATE(STS_TG32, KSEL(SEG_KCODE), vecnull, DPL_KERN);
+  }
+
+  // -------------------- system call --------------------------
+  idt[0x80] = GATE(STS_TG32, KSEL(SEG_KCODE), vecsys, DPL_USER);
+  idt[0x81] = GATE(STS_TG32, KSEL(SEG_KCODE), vecself, DPL_USER);
+  idt[32] = GATE(STS_TG32, KSEL(SEG_KCODE), vectime, DPL_USER);
+
+
+  set_idt(idt, sizeof(idt));
+
+  // register event handler
+  H = h;
+}
+\end{lstlisting}
+AM根据 nexus-am/am/arch/x86-nemu/src/trap.S中定义的全局标号vectrap（即0x81）进行相应的处理，内核自陷实际上完成了一次进程调度，跳到了asm\_trap函数中。
+\begin{lstlisting}
+.globl vectime; vectime: pushl $0; pushl $32; jmp asm_trap 
+\end{lstlisting}
+asm\_trap函数也是在这个文件中定义的，通过阅读其代码，可以看出，具体过程是将栈顶指针切换到回的堆栈上，然后恢复切换进程现场。
+\begin{lstlisting}
+asm_trap:
+pushal
+
+pushl %esp
+call irq_handle
+
+# addl $4, %esp
+movl %eax, %esp
+
+popal
+addl $8, %esp
+
+iret
+\end{lstlisting}
+
+
+我们运行起了仙剑奇侠传，这时候加入了时钟中断，每个10ms，触发timer\_intr()，将 cpu 中的 INTR 引脚置成1。 当每执行完一条指令后，CPU检查 INTR 引脚查看是否有中断产生。如果INTR为1且IF不为1（中断关），那么就执行一次时钟中断，我们会将仙剑奇侠传的上下文信息保 存，并跳转到执行时间中断的处理中去，在这个处理中，我们将会利用schedule对进行调度，schedule函数会跳转到\_switch函数，而 \_switch很简单，只有一个set\_cr3记录页表页目录项的基地址，进行地址空间的切换。
+假设我们决定切换当前进程到hello程序，那么该函数就会返回hello程序的陷阱帧，并且把地址空间切换到hello程序中，把上下文再次进行切换。
+\begin{lstlisting}[language = C++]
+RegSet* schedule(_RegSet *prev) {
+  if(current != NULL) {
+    current -> tf = prev;
+  }
+  else {
+    current = &pcb[current_game];
+  }
+  static int num = 0;
+  static const int frequency = 1000;
+  if(current == &pcb[current_game]) {
+    num++;
+  }
+  else {
+    current = &pcb[current_game];
+  }
+  if(num == frequency) {
+    current = &pcb[1];
+    num = 0;
+  }
+  // current = (current == &pcb[0]? &pcb[1] : &pcb[0]);
+  // Log("ptr = 0x%x\n", (uint32_t)current -> as.ptr);
+  _switch(&current -> as);
+  return current -> tf;
+}
+
+\end{lstlisting}
+
+
+最终，各个函数进行返回，知道trap.S中的最后一条指令，完成一次中断调用。这样的话，虽然多任务的虚拟地址是重叠的，但是通过这种中断，可以切换二者的地址空间并保护上下文，顺利实现分时多任务。
+
+
+
+
+
+
+
+
+
+\section{bug总结}
+这一部分，总结了我在实验过程中遇到的bug，有些是因为环境问题，还有一些是因为写代码时候的粗心等问题导致的。
 
 \end{document}
