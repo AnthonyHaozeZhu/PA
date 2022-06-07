@@ -439,7 +439,7 @@ endif
 \end{lstlisting}
 运行dummy报缺页错误，这是因为我们尚未实现页的分配和映射，所以运行会有问题。
 \begin{center}
-  \includegraphics*[scale = 0.2]{img/6}
+  \includegraphics*[scale = 0.28]{img/6}
 \end{center}
 
 于是，在nexus-am/am/arch/x86-nemu/src/pte.c当中实现\_map()函数。这个函数的具体功能是将虚拟地址空间 p 中的虚拟地址 va 映射到物理地址 pa，通过 p->ptr 可以获取页目录的基地址；如果映射过程中发现需要申请新的页，就调用palloc\_f()函数来完成。
@@ -524,155 +524,414 @@ int sys_brk(int addr) {
   \includegraphics*[scale = 0.4]{img/8}
 \end{center}
 
+\section{阶段二： 上下文切换与调度}
+在这一阶段，我们需要内核自陷、上下文切换，以最终实现程序的分时运行。
+\subsection{内核自陷}
+在真实的操作系统当中，程序通过自陷指令触发上下文切换，所以我们首先实现内核自陷。
+第一，	在nanos-lite/src/main.c中开启内核自陷的功能：\_trap();我们约定内核自陷通过指令 int \$0x81触发，于是据此完成\_tarp()函数。调整nexus-am/am/arch/x86-nemu/src/asye.c中的\_trap()函数
+\begin{lstlisting}[language = C++]
+void _trap() {
+  asm volatile("int $0x81");
+}
+\end{lstlisting}
+然后，在nanos-lite/src/proc.c中的load\_prog函数注释代码如下：
+\begin{lstlisting}[language = C++]
+// TODO: remove the following three lines after you have implemented _umake()
+// _switch(&pcb[i].as);
+// current = &pcb[i];
+// Log("run proc go to %x", entry);
+// ((void (*)(void))entry)();
+\end{lstlisting}
+在nexus-am/am/arch/x86-nemu/src/asye.c文件的irq\_handle ()函数当中，将 0x81 异常封装成\_EVENT\_TRAP事件。
+\begin{lstlisting}[language = C++]
+_RegSet* irq_handle(_RegSet *tf) {
+  _RegSet *next = tf;
+  if (H) {
+    _Event ev;
+    switch (tf->irq) {
+      case 0x80: 
+        ev.event = _EVENT_SYSCALL; 
+        break;
+      case 0x81:
+        ev.event = _EVENT_TRAP;
+        break;
+      default: 
+        ev.event = _EVENT_ERROR; 
+        break;
+    }
+
+    next = H(ev, tf);
+    if (next == NULL) {
+      next = tf;
+    }
+  }
+
+  return next;
+}
+\end{lstlisting}
+
+在nanos-lite/src/irq.c当中，补充对\_EVENT\_TRAP事件的处理，输出一条提示信息，来验证我们实现的正确性。
+\begin{lstlisting}[language = C++]
+static _RegSet* do_event(_Event e, _RegSet* r) {
+  switch (e.event) {
+    case _EVENT_SYSCALL:
+      return do_syscall(r);
+    case _EVENT_TRAP:
+      printf("event:self-trapped\n");
+      return NULL;
+    default: 
+      panic("Unhandled event ID = %d", e.event);
+  }
+
+  return NULL;
+}
+\end{lstlisting}
+然后我们还要在此基础上继续设置中断描述符。
+在nexus-am/am/arch/x86-nemu/src/asye.c中声明入口函数vecself()。
+\begin{lstlisting}[language = C++]
+void vecsys();
+void vecnull();
+void vecself();
+void vectime();
+\end{lstlisting}
+
+然后在nexus-am/am/arch/x86-nemu/src/trap.S中，仿照其他两个函数的格式，补充vecself()函数的具体定义。
+\begin{lstlisting}[]
+#----|-------entry-------|-errorcode-|---irq id---|---handler---|
+.globl vecsys;    vecsys:  pushl $0;  pushl $0x80; jmp asm_trap
+.globl vecnull;  vecnull:  pushl $0;  pushl   $-1; jmp asm_trap
+.globl vecself;  vecself:  pushl $0;  pushl $0x81; jmp asm_trap 
+.globl vectime; vectime: pushl $0; pushl $32; jmp asm_trap 
+\end{lstlisting}
+在nexus-am/am/arch/x86-nemu/src/asye.c的\_asye\_init()函数中，添加0x81的描述符，其入口函数是vecself，其他内容与0x80一致
+\begin{lstlisting}[language = C++]
+void _asye_init(_RegSet*(*h)(_Event, _RegSet*)) {
+  // initialize IDT
+  for (unsigned int i = 0; i < NR_IRQ; i ++) {
+    idt[i] = GATE(STS_TG32, KSEL(SEG_KCODE), vecnull, DPL_KERN);
+  }
+
+  // -------------------- system call --------------------------
+  idt[0x80] = GATE(STS_TG32, KSEL(SEG_KCODE), vecsys, DPL_USER);
+  idt[0x81] = GATE(STS_TG32, KSEL(SEG_KCODE), vecself, DPL_USER);
+  idt[32] = GATE(STS_TG32, KSEL(SEG_KCODE), vectime, DPL_USER);
 
 
+  set_idt(idt, sizeof(idt));
+
+  // register event handler
+  H = h;
+}
+\end{lstlisting}
+此时运行程序，可以看到输出了我们在do\_event()函数中设定的内核自陷提示信息，代表我们的内核自陷已成功完成。
+\begin{center}
+  \includegraphics[scale = 0.53]{./img/9.png}
+\end{center}
+
+\subsection{实现上下文切换}
+根据实验指导书的要求，我们需要在这部分实现如下内容：
+\begin{itemize}
+\item PTE 的\_umake()函数；
+\item Nanos-lite的schedule()函数；
+\item 修改 ASYE 中 asm\_trap()的实现，使得从 irq\_handle()返回后,先将栈顶指针切换到新进程的陷阱帧，然后才根据陷阱帧的内容恢复现场，从而完成上下文切换的本质操作。
+\end{itemize}
+在nexus-am/am/arch/x86-nemu/src/pte.c中完成\_umake()函数。这个函数在加载程序时完成上下文的创建，在这里，我们依次把入口的三个参数和指令寄存器入栈，然后按PA3实现过的思路，完成对tf内容的初始化设置。
+\begin{lstlisting}[language = C++]
+_RegSet *_umake(_Protect *p, _Area ustack, _Area kstack, void *entry, char *const argv[], char *const envp[]) {
+  extern void* memcpy(void *, const void *, int);
+  int arg1 = 0;
+  char *arg2 = NULL;
+  memcpy((void*)ustack.end - 4, (void*)arg2, 4);
+  memcpy((void*)ustack.end - 8, (void*)arg2, 4);
+  memcpy((void*)ustack.end - 12, (void*)arg1, 4);
+  memcpy((void*)ustack.end - 16, (void*)arg1, 4);
+
+  _RegSet tf;
+  tf.eflags = 0x02 | FL_IF;
+  tf.cs = 0;
+  tf.eip = (uintptr_t) entry;
+  void *ptf = (void*) (ustack.end - 16 - sizeof(_RegSet));
+  memcpy(ptf, (void*)&tf, sizeof(_RegSet));
+  return (_RegSet*) ptf;
+}
+\end{lstlisting}
+在nanos-lite/src/proc.c中，完成schedule()函数，用于返回现场。
+\begin{lstlisting}[language = C++]
+_RegSet* schedule(_RegSet *prev) {
+  if(current != NULL) {
+    current -> tf = prev;
+  }
+  current = pcb[0];
+  Log("ptr = 0x%x\n", (uint32_t)current -> as.ptr);
+  _switch(&current -> as);
+  return current -> tf;
+}
+
+\end{lstlisting}
+然后在nanos-lite/src/irq.c中，完善对\_EVENT\_TRAP 事件的处理。也就是，Nanos-lite 收到\_EVENT\_TRAP 事件后，调用 schedule()并返回其现场。
+
+\begin{lstlisting}[language = C++]
+static _RegSet* do_event(_Event e, _RegSet* r) {
+  switch (e.event) {
+    case _EVENT_SYSCALL:
+      return do_syscall(r);
+    case _EVENT_TRAP:
+      printf("event:self-trapped\n");
+      return schedule(r);
+    default: 
+      panic("Unhandled event ID = %d", e.event);
+  }
+
+  return NULL;
+}
+\end{lstlisting}
+
+最后，修改nexus-am/am/arch/x86-nemu/src/trap.S中asm\_trap()的实现：从中断控制函数返回后，先把栈顶指针切换到新进程的trap帧，再据此恢复现场。
+\begin{lstlisting}[language=C++]
+asm_trap:
+  pushal
+
+  pushl %esp
+  call irq_handle
+
+  # addl $4, %esp
+  movl %eax, %esp
+
+  popal
+  addl $8, %esp
+
+  iret
+\end{lstlisting}
+于是我们可以通过自陷的方式触发仙剑奇侠传程序了。
+\begin{center}
+  \includegraphics*[scale = 0.35]{img/10}
+\end{center}
+
+\subsection{分时多任务}
+我们已经实现了分页和上下文切换，实际上已经可以支持多任务分时运行了。这部分我们需要做的就是完善调度机制，让仙剑奇侠传和其他程序切换运行。
+首先修改nanos-lite/src/main.c当中加载程序的代码，把待运行的程序都载入。
+\begin{lstlisting}[language = C++]
+load_prog("/bin/pal");
+load_prog("/bin/hello");
+\end{lstlisting}
+接着修改nanos-lite/src/proc.c中调度的代码，让 schedule()轮流返回仙剑奇侠传和 hello 的现场。这里只要按指导书所说，修改current的值即可。
+\begin{lstlisting}[language = C++]
+_RegSet* schedule(_RegSet *prev) {
+  if(current != NULL) {
+    current -> tf = prev;
+  }
+  current = (current == &pcb[0]? &pcb[1] : &pcb[0]);
+  Log("ptr = 0x%x\n", (uint32_t)current -> as.ptr);
+  _switch(&current -> as);
+  return current -> tf;
+}
+\end{lstlisting}
+最后，修改nanos-lite/src/irq.c当中do\_event() 的代码，在处理完syscall之后，调用 schedule()函数并返回其现场
+\begin{lstlisting}[language=C++]
+static _RegSet* do_event(_Event e, _RegSet* r) {
+  switch (e.event) {
+    case _EVENT_SYSCALL:
+      // return do_syscall(r);
+      do_syscall(r);
+      return schedule(r);
+    case _EVENT_TRAP:
+      printf("event:self-trapped\n");
+      return schedule(r);
+    default: 
+      panic("Unhandled event ID = %d", e.event);
+  }
+
+  return NULL;
+}
+\end{lstlisting}
+于是，我们完成了hello和仙剑奇侠传的分时运行。
+\begin{center}
+  \includegraphics*[scale = 0.35]{img/11}
+\end{center}
+
+\subsection{优先级调度}
+实现两个程序分时运行之后，仙剑奇侠传的运行速度有了明显的下降，于是我们在这部分对调度频率比例进行修改，让仙剑奇侠传能更多地占用处理器资源，运行得稍快些。需要修改的依然是nanos-lite/src/proc.c文件的schedule()代码，设置frequency为频率比例，num为当前程序运行次数，仙剑奇侠传运行frequency次，才切换到hello程序运行一次，并重新计数。
+\begin{lstlisting}[language = C++]
+_RegSet* schedule(_RegSet *prev) {
+  if(current != NULL) {
+    current -> tf = prev;
+  }
+  else {
+    current = &pcb[current_game];
+  }
+  static int num = 0;
+  static const int frequency = 1000;
+  if(current == &pcb[current_game]) {
+    num++;
+  }
+  else {
+    current = &pcb[current_game];
+  }
+  if(num == frequency) {
+    current = &pcb[1];
+    num = 0;
+  }
+  // current = (current == &pcb[0]? &pcb[1] : &pcb[0]);
+  // Log("ptr = 0x%x\n", (uint32_t)current -> as.ptr);
+  _switch(&current -> as);
+  return current -> tf;
+}
+\end{lstlisting}
+实现了指定频率比例的优先级调度之后，仙剑奇侠传的运行速度得到了提升。
+\begin{center}
+  \includegraphics*[scale = 0.3]{img/12}
+\end{center}
+
+\section{阶段三： 时钟中断与其他}
+\subsection{时钟中断}
+如果程序陷入了死循环，或程序是一个高占用的有害程序，系统应当能提供一些机制来强制将它结束。这就是系统设定的硬件中断。在我们的实验中只实现时钟中断这一种即可，这就是本阶段的任务。根据指导书，首先，在 nemu/include/cpu/reg.h的cpu 结构体中添加一个 bool 成员 INTR
+\begin{lstlisting}[language = C++]
+bool INTR;
+\end{lstlisting}
+然后在nemu/src/cpu/intr.c 的dev\_raise\_intr()中将 INTR 引脚设置为高电平。
+\begin{lstlisting}[language = C++]
+void dev_raise_intr() {
+  cpu.INTR = true;
+}
+\end{lstlisting}
+在nemu/src/cpu/exec/exec.c文件的exec\_wrapper()函数末尾添加轮询 INTR 引脚的代码。其具体功能是，每次执行完一条指令就查看是否有硬件中断到来，具体代码在指导书中已经直接给出。
+\begin{lstlisting}[language = C++]
+#define TIME_IRQ 32
+
+  if(cpu.INTR & cpu.eflags.IF) {
+    cpu.INTR = false;
+    extern void raise_intr(uint8_t NO, vaddr_t ret_addr);
+    raise_intr(TIME_IRQ, cpu.eip);
+    update_eip();
+  }
+\end{lstlisting}
+
+然后修改 nemu/src/cpu/intr.c当中raise\_intr()的代码
+
+\begin{lstlisting}[language = C++]
+memcpy(&t1, &cpu.eflags, sizeof(cpu.eflags));
+rtl_li(&t0, t1);
+rtl_push(&t0);
+cpu.eflags.IF = 0;
+rtl_push(&cpu.cs);
+rtl_li(&t0, ret_addr);
+rtl_push(&t0);
+\end{lstlisting}
+这部分代码使得程序在保存 EFLAGS 寄存器后，将其IF位设为 0，让处理器进入关中断的状态。这几部分代码完成了时钟中断的硬件操作，还需要在ASYE添加对时钟中断的支持，完成软件层面的系统中断实现。
+
+首先在nexus-am/am/arch/x86-nemu/src/asye.c声明vectime()作为时钟中断的入口函数，然后在asye\_init()中添加int 32的门描述符。
+
+\begin{lstlisting}[language = C++]
+idt[32] = GATE(STS_TG32, KSEL(SEG_KCODE), vectime, DPL_USER);
+\end{lstlisting}
+在irq\_handle()函数中添加\_EVENT\_IRQ\_TIME事件。
+\begin{lstlisting}[language = C++]
+_RegSet* irq_handle(_RegSet *tf) {
+  _RegSet *next = tf;
+  if (H) {
+    _Event ev;
+    switch (tf->irq) {
+      case 0x80: 
+        ev.event = _EVENT_SYSCALL; 
+        break;
+      case 0x81:
+        ev.event = _EVENT_TRAP;
+        break;
+      case 32:
+        ev.event = _EVENT_IRQ_TIME;
+        break;
+      default: 
+        ev.event = _EVENT_ERROR; 
+        break;
+    }
+
+    next = H(ev, tf);
+    if (next == NULL) {
+      next = tf;
+    }
+  }
+
+  return next;
+}
+\end{lstlisting}
+然后，在nanos-lite/src/irq.c当中，为do\_event() 函数添加\_EVENT\_IRQ\_TIME事件的操作。
+\begin{lstlisting}[language = C++]
+static _RegSet* do_event(_Event e, _RegSet* r) {
+  switch (e.event) {
+    case _EVENT_SYSCALL:
+      // return do_syscall(r);
+      do_syscall(r);
+      return schedule(r);
+    case _EVENT_TRAP:
+      printf("event:self-trapped\n");
+      return schedule(r);
+    case _EVENT_IRQ_TIME: 
+      Log("event:IRQ_TIME");
+      return schedule(r);
+    default: 
+      panic("Unhandled event ID = %d", e.event);
+  }
+
+  return NULL;
+}
+\end{lstlisting}
+即，收到时钟中断的信号后，直接调用schedule()函数进行调度，并输出一个时钟中断的调度信息，以便我们验证程序结果。
+
+还需要在nexus-am/am/arch/x86-nemu/src/trap.S中对vectime函数进行注册。
+\begin{lstlisting}[]
+.globl vectime; vectime: pushl $0; pushl $32; jmp asm_trap 
+\end{lstlisting}
 
 
+最后，为了保证处理器运行程序时能对时钟中断做出正确响应，还要修改nexus-am/am/arch
+/x86¬nemu/src/pte.c中的\_umake()函数，对eflags寄存器进行对应的设置。
+\begin{lstlisting}[language = C++]
+_RegSet *_umake(_Protect *p, _Area ustack, _Area kstack, void *entry, char *const argv[], char *const envp[]) {
+  extern void* memcpy(void *, const void *, int);
+  int arg1 = 0;
+  char *arg2 = NULL;
+  memcpy((void*)ustack.end - 4, (void*)arg2, 4);
+  memcpy((void*)ustack.end - 8, (void*)arg2, 4);
+  memcpy((void*)ustack.end - 12, (void*)arg1, 4);
+  memcpy((void*)ustack.end - 16, (void*)arg1, 4);
 
+  _RegSet tf;
+  tf.eflags = 0x02 | FL_IF;
+  tf.cs = 0;
+  tf.eip = (uintptr_t) entry;
+  void *ptf = (void*) (ustack.end - 16 - sizeof(_RegSet));
+  memcpy(ptf, (void*)&tf, sizeof(_RegSet));
+  return (_RegSet*) ptf;
+}
+\end{lstlisting}
+时钟中断成功实现。
+\begin{center}
+\includegraphics[width=0.9\textwidth]{img/13.png}
+\includegraphics[width=0.9\textwidth]{img/14.png}
+\includegraphics[width=0.9\textwidth]{img/15.png}
+\end{center}
 
+\subsection{展示计算机系统}
+这部分为系统添加按键功能，当用户按下F12的时候，让游戏在仙剑奇侠传和videotest之间切换。首先在nanos-lite/src/proc.c的schedule()函数中，通过一个变量 current\_game 来记录当前的游戏，在current\_game和hello程序之间进行调度。通过编写switch\_current\_game()函数，在游戏之间进行切换。
+\begin{lstlisting}[language = C++]
+int current_game = 0;
+void switch_current_game() {
+  current_game = 2 - current_game;
+  Log("current_game = %d", current_game);
+}
+\end{lstlisting}
+在nanos-lite/src/device.c的events\_read()函数中，添加对按键F12的检测和响应处理
+\begin{lstlisting}[language = C++]
+if(down && key == _KEY_F12) {
+  extern void switch_current_game();
+  switch_current_game();
+  Log("key down:_KEY_F12, switch current game0!");
+}
+\end{lstlisting}
+于是，程序按照我们的设计，最初是仙剑奇侠传和 hello 程序分时运行，按下 F12 之后，就变成 videotest 和 hello 程序分时运行。
+\begin{center}
+  \includegraphics*[scale=0.35]{img/16.png}
+\end{center}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-% \section{概述}
-% %——————————————————————————————————————
-% \subsection{第一节}
-% 如图\ref{fig:1}所示
-% \begin{figure}[H]
-%     \centering
-%     \includegraphics[scale=0.3]{NKU.png}
-%     \caption{Caption}
-%     \label{fig:1}
-% \end{figure}
-
-% 表
-% \begin{table}[!htbp]
-%   \centering
-%   \begin{tabular}{ccccccccccc}
-%   \toprule  
-%   N/n$\backslash$Algo& naive-conv& naive-pool& omp-conv& omp-pool\\
-%   \midrule
-%   64/2& 0.0167& 0.01255& 0.04142& 0.03799\\
-%   64/4& 0.03599&0.0394& 0.0458& 0.0421\\
-%   \bottomrule
-%   \end{tabular}
-%   \caption{性能测试结果(4线程)(单位:ms)}
-% \end{table}
-
-% 带单元格表格
-% \begin{table}[!htbp]
-%   \centering
-%   \begin{tabular}{|c|c|c|c|c|c|c|}
-%   \hline
-%   \multicolumn{2}{|c|}{ \multirow{2}*{$Cost$} }& \multicolumn{5}{c|}{To}\\
-%   \cline{3-7}
-%   \multicolumn{2}{|c|}{}&$A$&$B$&$C$&$D$&$E$\\
-%   \hline
-%   \multirow{3}*{From}&$B$&7&0&1&3&8\\
-%   \cline{2-7}
-%   &$C$&8&1&0&2&7\\
-%   \cline{2-7}
-%   &$D$&8&3&2&0&5\\
-%   \hline
-%   \end{tabular}
-%   \caption{结点C距离向量表(无毒性逆转)}
-% \end{table}
-
-% %——————————————————————————————————————
-% \subsection{第二节}
-% 伪代码
-
-% \begin{breakablealgorithm} 
-%   \caption{初始化obj文件信息——对应MeshSimplify类中readfile函数,Face类calMatrix函数} 
-%   \begin{algorithmic}[1] %每行显示行号  
-%       \Require obj文件,顶点、边、面列表
-%       \Ensure 是否读取成功
-%       \Function {calMatrix}{$Face$}  
-%               \State $normal \gets e1×e2$  
-%               \State $normal \gets normal/normal.length$
-%               \State $temp[] \gets {normal.x, normal.y, normal.z, normal· Face.v1}$
-%               \State $Matrix[i][j]=temp[i] * temp[j]$ 
-%               \State \Return{$Matrix$}  
-%       \EndFunction
-%       \State 根据obj的v和f区分点面信息,读取并加入列表
-%       \State $scale \gets $记录点坐标中距离原点最远的分量,以便后续OpenGL进行显示
-%       \State $ori \gets $记录中心点,便于OpenGL显示在中心位置,避免有的obj偏移原点较多
-%       \State 根据三角面片信息,计算一个面的三条边
-%       \State 计算每个面的矩阵$\gets calMatrix$
-%       \State 将每个面的矩阵加到各点,由点维护\\
-%       \Return True
-%   \end{algorithmic}  
-% \end{breakablealgorithm}
-
-% 代码
-% \begin{lstlisting}[title=逐列访问平凡算法,frame=trbl,language={C++}]
-%   void ord()   
-%   {
-%       double head,tail,freq,head1,tail1,timess=0; // timers
-%       init(N);
-%       QueryPerformanceFrequency((LARGE_INTEGER *)&freq );
-%       QueryPerformanceCounter((LARGE_INTEGER *)&head);
-%       for (int i=0; i<NN; i++)
-%           for (int j=0; j<NN; j++)
-%               col_sum[i] += (b[j][i]*a[j]);
-%       QueryPerformanceCounter ((LARGE_INTEGER *)& tail) ;
-%       cout << "\nordCol" <<(tail-head)*1000.0 / freq<< "ms" << endl;
-%   }
-% \end{lstlisting}
-
-
-% %——————————————————————————————————————
-% \subsection{第三节}
-
-% 参考文献\cite{adams1995hitchhiker}\cite{shin2016deep}
-    
-% 多行公式
-% \begin{align}
-%   a+b = a + b \\
-%   \frac{a+b}{a-b}
-% \end{align}
-
-% 行内公式：$\sum^N_{i=1}$
-
-% \textbf{超链接}  \href{http://youtube.com/}{YouTube}
-
-% 带标号枚举
-% \begin{enumerate}
-%   \item 1
-%   \item 2
-% \end{enumerate}
-
-% 不带标号枚举
-% \begin{itemize}
-%   \item 1
-%   \item 2
-% \end{itemize}
-
-% \xiaosi{切换字体大小}
-
-% %----------------------------------------------------------------
-% \section{总结}
-
-% %----------------------------------------------------------------
 
 \end{document}
