@@ -2,7 +2,7 @@
 
 /* Uncomment these macros to enable corresponding functionality. */
 #define HAS_ASYE
-// #define HAS_PTE
+#define HAS_PTE
 
 void init_mm(void);
 void init_ramdisk(void);
@@ -31,11 +31,11 @@ int main() {
 
   init_fs();
 
- uint32_t entry = loader(NULL, "/bin/dummy");
- ((void (*)(void))entry)();
- 	// load_prog("/bin/pal");
-	// load_prog("/bin/hello");
-  //  load_prog("/bin/videotest");
-	// _trap();
+ // uint32_t entry = loader(NULL, "/bin/dummy");
+ // ((void (*)(void))entry)();
+ 	load_prog("/bin/pal");
+	load_prog("/bin/hello");
+   load_prog("/bin/videotest");
+	_trap();
   panic("Should not reach here");
 }

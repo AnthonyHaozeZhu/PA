@@ -12,7 +12,7 @@ include Makefile.git
 CC = gcc
 LD = gcc
 INCLUDES  = $(addprefix -I, $(INC_DIR))
-CFLAGS   += -O2 -MMD -Wall -ggdb $(INCLUDES)
+CFLAGS   += -O2 -MMD -Wall -Werror -ggdb $(INCLUDES)
 
 # Files to be compiled
 SRCS = $(shell find src/ -name "*.c")
@@ -52,3 +52,9 @@ gdb: $(BINARY)
 
 clean: 
 	rm -rf $(BUILD_DIR)
+
+count:
+	git checkout pa0
+	find . -name "*.[ch]" |xargs cat|wc -l
+	git checkout pa1
+	find . -name "*.[ch]" |xargs cat|wc -l

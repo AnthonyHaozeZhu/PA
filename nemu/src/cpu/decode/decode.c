@@ -38,12 +38,10 @@ static inline make_DopHelper(SI) {
    *
    op->simm = ???
    */
-  //TODO();
-  op -> simm = instr_fetch(eip, op -> width);
-  if(op -> width == 1) {
-    op -> simm = (int8_t)op -> simm;
+  op->simm=instr_fetch(eip,op->width);
+  if(op->width==1){
+   op->simm=(int8_t)op->simm;
   }
-
   rtl_li(&op->val, op->simm);
 
 #ifdef DEBUG
@@ -308,27 +306,8 @@ make_DHelper(out_a2dx) {
 #endif
 }
 
-make_DHelper(lidt_a) {
-  decode_op_a(eip, id_dest, true);
-}
-
 void operand_write(Operand *op, rtlreg_t* src) {
   if (op->type == OP_TYPE_REG) { rtl_sr(op->reg, op->width, src); }
   else if (op->type == OP_TYPE_MEM) { rtl_sm(&op->addr, op->width, src); }
   else { assert(0); }
-}
-
-make_DHelper(mov_load_cr) {
-  decode_op_rm(eip, id_dest, false, id_src, false);
-  rtl_load_cr(&id_src -> val, id_src -> reg);
-#ifdef DEBUG
-  snprintf(id_src -> str, 5, "%%cr%d", id_dest -> reg);
-#endif
-}
-
-make_DHelper(mov_store_cr) {
-  decode_op_rm(eip, id_src, true, id_dest, false);
-#ifdef DEBUG
-  snprintf(id_src -> str, 5, "%%cr%d", id_dest -> reg);
-#endif
 }

@@ -5,7 +5,7 @@
 #define NR_MAP 8
 
 /* "+ 3" is for hacking, see pio_read() below */
-static uint8_t pio_space[PORT_IO_SPACE_MAX + 3];
+static uint8_t pio_space[PORT_IO_SPACE_MAX+3];
 
 typedef struct {
   ioaddr_t low;

@@ -1,36 +1,44 @@
 #include "FLOAT.h"
 #include <stdint.h>
 #include <assert.h>
+#include <string.h>
 
 FLOAT F_mul_F(FLOAT a, FLOAT b) {
-  // long long int result =  (long long int) a * b;
-  // int *temp = (int *)& result;
-  // return (FLOAT)((*(temp)>>16)& 0xffff) | (*(temp + 1) << 16);
-  
-  assert(0);
-  return 0;
+ // Log("mul:%x::::%x",a,b);
+  long long int res=(long long int)a*b;
+  int *t=(int *)&res;
+  int fin=((*(t)>>16)&0xffff)|(*(t+1)<<16);
+ 
+ // Log("%x",fin);
+  return (FLOAT)fin;
 }
 
 FLOAT F_div_F(FLOAT a, FLOAT b) {
-
-  // FLOAT x = Fabs(a);
-  // FLOAT y = Fabs(b);
-  // FLOAT result = x / y;
-  // x = x % y;
-  // for (int i = 0; i < 16; i++) {
-  //   x <<= 1;
-  //   result <<= 1;
-  //   if (x >= y) {
-  //     x -= y;
-  //     result++;
-  //   }
-  // }
-  // if (((a ^ b) & 0x80000000) == 0x80000000) {
-  //   result = -result; 
-  // }
-  // return result;
-  assert(0);
-  return 0;
+ //Log("div:%x::::%x",a,b);
+  int remain=0;
+  int n=0;
+  int res=0; 
+ for(int i=0;i<32;i++){
+  n=((int)a>>(31-i))&0x1;
+  remain=(remain<<1)+n;
+  res=res<<1;
+  if(remain>(int)b){
+  res=res|1;
+  remain-=(int)b;
+  }
+ }
+ for(int i=0;i<16;i++){
+ n=0;
+ remain=(remain<<1);
+res=res<<1;
+if(remain>(int)b){
+res=res|1;
+remain-=(int)b;
+}
+ 
+ }
+ // Log("%x",res);
+  return (FLOAT)res;
 }
 
 FLOAT f2F(float a) {
@@ -43,55 +51,51 @@ FLOAT f2F(float a) {
    * stack. How do you retrieve it to another variable without
    * performing arithmetic operations on it directly?
    */
-  // Log("This is in it!")
-  // union float_ {
-  //   struct {
-  //     uint32_t m: 23; //浮点数表示的有效位
-  //     uint32_t e: 8;  //浮点数表示的指数位
-  //     uint32_t s: 1;  //浮点数表示的符号位
-  //     /* data */
-  //   };
-  //   uint32_t value;
-  // };
-  // uint32_t temp = 0;
-  // memcpy(&temp, &a, sizeof(a));
-  // union float_ f;
-  // f.value = temp;
-  // int e = f.e - 127;
-
-  // FLOAT result;
-
-  // if (e <= 7) {
-  //   result = (f.m | (1 << 23)) >> 7 - e;//1<<23代表缺省的1 
-  // }
-  // else {
-  //   result = (f.m | (1 << 23)) << (e - 7);
-  // }
-  // if(f.s == 0) {
-  //   return result;
-  // }
-  // else {
-  //   return (result | (1<<31));
-  // }
-    assert(0);
-  return 0;
+  uint32_t b=0;
+   memcpy(&b,&a,sizeof(a));
+ // Log("%x",b);
+   FLOAT res=0;
+   int32_t sign=(b>>31)&0x1;
+//   printf("sign:%d\n",sign);
+   int32_t e=(b>>23)&0xff;
+   int32_t w=b&0x7fffff;
+   int32_t l=e-127;
+//   printf("l:%d\n",l);
+   uint32_t mask=0x7fffff; 
+   w=(w|(0x1<<23));
+//   printf("w:%08x\n",w);
+   if(l>0){
+    w=w<<l;
+   }
+   else{
+   w=w>>(-l);
+   }
+  res=(FLOAT)(w>>7); 
+//  Log("%d",res);
+  return sign==0?res:-res;
 }
 
 FLOAT Fabs(FLOAT a) {
-  assert(0);
-  return 0;
+  int res=(int)a;
+  if(res<0){
+  res=-res;
+  a=(FLOAT)res;
+  return a;
+  }
+  else{
+  return a;
+  }
 }
 
 /* Functions below are already implemented */
 
 FLOAT Fsqrt(FLOAT x) {
   FLOAT dt, t = int2F(2);
-
+  
   do {
     dt = F_div_int((F_div_F(x, t) - t), 2);
     t += dt;
   } while(Fabs(dt) > f2F(1e-4));
-
   return t;
 }
 
@@ -104,6 +108,5 @@ FLOAT Fpow(FLOAT x, FLOAT y) {
     dt = (F_div_F(x, t2) - t) / 3;
     t += dt;
   } while(Fabs(dt) > f2F(1e-4));
-
   return t;
 }

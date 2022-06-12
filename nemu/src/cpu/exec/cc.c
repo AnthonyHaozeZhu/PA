@@ -15,41 +15,30 @@ void rtl_setcc(rtlreg_t* dest, uint8_t subcode) {
   // dest <- ( cc is satisfied ? 1 : 0)
   switch (subcode & 0xe) {
     case CC_O:
-	    rtl_get_OF(dest);
-	    break;	
+			*dest=(cpu.EFLAGS.OF==1?1:0);
+			break;
     case CC_B:
-	    rtl_get_CF(dest);
-	    break;
+ 			*dest=(cpu.EFLAGS.CF==1?1:0);
+			break;
     case CC_E:
-	    rtl_get_ZF(dest);
-	    break;
+ 			*dest=(cpu.EFLAGS.ZF==1?1:0);
+			break; 
     case CC_BE:
-	    assert(dest!=&t0);
-	    rtl_get_CF(dest);
-	    rtl_get_ZF(&t0);
-      rtl_or(dest,dest,&t0);
-      break;
+			*dest=((cpu.EFLAGS.CF==1||cpu.EFLAGS.ZF==1)?1:0);
+			break;
     case CC_S:
-	    rtl_get_SF(dest);
-	    break;
+	 			*dest=(cpu.EFLAGS.SF==1?1:0);
+			break;
+ 		
     case CC_L:
-	    assert(dest!=&t0);
-	    rtl_get_SF(dest);
-	    rtl_get_OF(&t0);
-      rtl_xor(dest,dest,&t0);
-	    break;
+			*dest=(cpu.EFLAGS.SF!=cpu.EFLAGS.OF?1:0);
+			break;
+ 
     case CC_LE:
-	    assert(dest!=&t0);
-	    rtl_get_SF(dest);
-	    rtl_get_OF(&t0);
-      rtl_xor(dest,dest,&t0);
-	    rtl_get_ZF(&t0);
-	    rtl_or(dest,dest,&t0);
-	    break;
-    default: 
-      panic("should not reach here");
-    case CC_P: 
-      panic("n86 does not have PF");
+         	*dest=(cpu.EFLAGS.ZF==1||cpu.EFLAGS.SF!=cpu.EFLAGS.OF?1:0);
+			break;
+    default: panic("should not reach here");
+    case CC_P: panic("n86 does not have PF");
   }
 
   if (invert) {

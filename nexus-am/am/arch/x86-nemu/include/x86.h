@@ -18,6 +18,8 @@
 #define CR0_PE    0x00000001  // Protection Enable
 #define CR0_PG    0x80000000  // Paging
 
+
+
 // Page directory and page table constants
 #define NR_PDE    1024    // # directory entries per page directory
 #define NR_PTE    1024    // # PTEs per page table

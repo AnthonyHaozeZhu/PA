@@ -9,8 +9,7 @@ void _ioe_init() {
 }
 
 unsigned long _uptime() {
-  unsigned long ms = inl(RTC_PORT) - boot_time;
-  return ms;
+  return inl(RTC_PORT)-boot_time;
 }
 
 uint32_t* const fb = (uint32_t *)0x40000;
@@ -23,15 +22,12 @@ _Screen _screen = {
 extern void* memcpy(void *, const void *, int);
 
 void _draw_rect(const uint32_t *pixels, int x, int y, int w, int h) {
-  // int i;
-  // for (i = 0; i < _screen.width * _screen.height; i++) {
-  //   fb[i] = i;
-  // }
-  int temp = (w > _screen.width - x)?_screen.width -x :w;
-  int cp_bytes = sizeof(uint32_t) *temp;
-  for(int j = 0; j < h && y + j < _screen.height; j++) {
-    memcpy(&fb[(y + j) * _screen.width + x], pixels, cp_bytes);
-    pixels += w;
+  int i;
+  int j;
+  for (i =y ; i<y+h ; i++) {
+		  for(j=x;j<x+w;j++){
+		  	fb[j+i*_screen.width]=pixels[(j-x)+(i-y)*w];
+		  }
   }
 }
 
@@ -39,13 +35,9 @@ void _draw_sync() {
 }
 
 int _read_key() {
-  if(inb(0x64)) {
-    return inl(0x60);
-  }
-  return _KEY_NONE;
-}
-
-void getScreen(int *width, int *height) {
-  *width = _screen.width;
-  *height = _screen.height;
+   uint32_t KEY_CODE=_KEY_NONE;	
+   if(inb(0x64)&0x1){
+     KEY_CODE=inl(0x60);
+   }
+  return KEY_CODE;
 }
