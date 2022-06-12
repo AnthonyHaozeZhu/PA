@@ -116,3 +116,8 @@ make_EHelper(lea) {
   operand_write(id_dest, &t2);
   print_asm_template2(lea);
 }
+
+make_EHelper(mov_store_cr) {
+  rtl_store_cr(id_dest -> reg, &id_src -> val);
+  print_asm_template2(mov);
+}

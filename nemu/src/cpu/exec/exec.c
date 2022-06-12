@@ -12,6 +12,7 @@ typedef struct {
 #define EXW(ex, w)         {NULL, concat(exec_, ex), w}
 #define EX(ex)             EXW(ex, 0)
 #define EMPTY              EX(inv)
+#define TIME_IRQ 32
 
 static inline void set_width(int width) {
   if (width == 0) {
@@ -147,7 +148,7 @@ opcode_entry opcode_table [512] = {
   /* 0x14 */	EMPTY, EMPTY, EMPTY, EMPTY,
   /* 0x18 */	EMPTY, EMPTY, EMPTY, EMPTY,
   /* 0x1c */	EMPTY, EMPTY, EMPTY, EMPTY,
-  /* 0x20 */	EMPTY, EMPTY, EMPTY, EMPTY,
+  /* 0x20 */	IDEX(mov_load_cr, mov), EMPTY, IDEX(mov_store_cr, mov_store_cr), EMPTY,
   /* 0x24 */	EMPTY, EMPTY, EMPTY, EMPTY,
   /* 0x28 */	EMPTY, EMPTY, EMPTY, EMPTY,
   /* 0x2c */	EMPTY, EMPTY, EMPTY, EMPTY,
@@ -252,4 +253,11 @@ void exec_wrapper(bool print_flag) {
   void difftest_step(uint32_t);
   difftest_step(eip);
 #endif
+
+  if(cpu.INTR & cpu.eflags.IF) {
+    cpu.INTR = false;
+    extern void raise_intr(uint8_t NO, vaddr_t ret_addr);
+    raise_intr(TIME_IRQ, cpu.eip);
+    update_eip();
+  }
 }
