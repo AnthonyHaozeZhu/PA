@@ -17,18 +17,36 @@ static inline int F2int(FLOAT a) {
 }
 
 static inline FLOAT int2F(int a) {
-  assert(0);
-  return 0;
+  int b;
+  if(a < 0) {
+    b = -a;
+  }
+  else {
+    b = a;
+  }
+  FLOAT result = (b << 16);
+  if(a < 0) {
+    result = - result;
+  }
+  return result;
+  // assert(0);
+  // return 0;
 }
 
 static inline FLOAT F_mul_int(FLOAT a, int b) {
-  assert(0);
-  return 0;
+  b = int2F(b);
+  FLOAT result = F_mul_F(a, b);
+  return result;
+  // assert(0);
+  // return 0;
 }
 
 static inline FLOAT F_div_int(FLOAT a, int b) {
-  assert(0);
-  return 0;
+  b = int2F(b);
+  FLOAT result = F_div_F(a, b);
+  return result;
+  // assert(0);
+  // return 0;
 }
 
 FLOAT f2F(float);
