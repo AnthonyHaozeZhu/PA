@@ -21,12 +21,14 @@ FLOAT F_div_F(FLOAT a, FLOAT b) {
     x <<= 1;
     result <<= 1;
     if (x >= y) {
-x -= y;
-result++; }
+      x -= y;
+      result++;
+    }
   }
   if (((a ^ b) & 0x80000000) == 0x80000000) {
-result = -result; }
-return result;
+    result = -result; 
+  }
+  return result;
   // assert(0);
   // return 0;
 }
@@ -41,7 +43,7 @@ FLOAT f2F(float a) {
    * stack. How do you retrieve it to another variable without
    * performing arithmetic operations on it directly?
    */
-
+  Log("This is in it!");
   union float_ {
     struct {
       uint32_t m: 23; //浮点数表示的有效位
