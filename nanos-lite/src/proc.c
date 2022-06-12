@@ -36,7 +36,7 @@ static int i=0;
 _RegSet* schedule(_RegSet *prev) {
   current->tf=prev;
   i++;
-  current=(i%200==0?&pcb[1]:&pcb[current_game]); 
+  // current=(i%200==0?&pcb[1]:&pcb[current_game]); 
  // current=&pcb[0];
   _switch(&current->as);
   return current->tf;
