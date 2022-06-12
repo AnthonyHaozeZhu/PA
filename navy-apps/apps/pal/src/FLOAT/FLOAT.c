@@ -9,24 +9,23 @@ FLOAT F_mul_F(FLOAT a, FLOAT b) {
 }
 
 FLOAT F_div_F(FLOAT a, FLOAT b) {
- //Log("div:%x::::%x",a,b);
-  FLOAT x = Fabs(a);
-  FLOAT y = Fabs(b);
-  FLOAT ret = x / y;
-  x = x % y;
+  FLOAT result = Fabs(a) / Fabs(b);
+  FLOAT m = Fabs(a);
+  FLOAT n = Fabs(b);
+  m = m % n;
 
   for (int i = 0; i < 16; i++) {
-    x <<= 1;
-    ret <<= 1;
-    if (x >= y) {
-      x -= y;
-      ret++;
+    m <<= 1;
+    result <<= 1;
+    if (m >= n) {
+      m -= n;
+      result++;
     }
   }
   if (((a ^ b) & 0x80000000) == 0x80000000) {
-    ret = -ret;
+    result = -result;
   }
-  return ret;
+  return result;
 }
 
 FLOAT f2F(float a) {
@@ -41,29 +40,25 @@ FLOAT f2F(float a) {
    */
   union float_ {
     struct {
-      uint32_t M : 23;//有效位
-      uint32_t E : 8;//指数位
-      uint32_t S : 1;//符号位
+      uint32_t m : 23;
+      uint32_t e : 8;
+      uint32_t signal : 1;
     };
-    uint32_t val;
+    uint32_t value;
   };
   union float_ f;
-  f.val = *((uint32_t*)(void*)&a);
+  f.value = *((uint32_t*)(void*)&a);
 
-  //将二进制浮点数转换为真的浮点数
-  int exp = f.E - 127;//真实指数需减去固定偏移值(移码)
+  int e = f.e - 127;
 
-  FLOAT ret;
-  //FLOAT 最后16位为小数，又有效位为23,
-  //所以当指数大于７时，小数位不足，需要左移；
-  //当指数小于７，小数溢出，需要右移
-  if (exp <= 7) {
-    ret = (f.M | (1 << 23)) >> 7 - exp;
+  FLOAT result;
+  if (e <= 7) {
+    result = (f.m | (1 << 23)) >> 7 - e;
   }
   else {
-    ret = (f.M | (1 << 23)) << (exp-7);
+    result = (f.m | (1 << 23)) << (e - 7);
   }
-  return f.S == 0 ? ret : (ret|(1<<31));
+  return f.signal == 0 ? result : (result|(1<<31));
 }
 
 /* Functions below are already implemented */
