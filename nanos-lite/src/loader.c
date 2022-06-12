@@ -1,21 +1,25 @@
 #include "common.h"
-#include "fs.h"
 
-#define DEFAULT_ENTRY ((void *)0x4000000)
+#define DEFAULT_ENTRY ((void *)0x8048000)
 
-extern uint8_t ramdisk_start;
-extern uint8_t ramdisk_end;
-
-#define RAMDISK_SIZE ((&ramdisk_end) - (&ramdisk_start))
-
-extern void ramdisk_read(void *buf, off_t offset, size_t len);
-
+extern int fs_open(const char *,int,int);
+extern size_t fs_filesz(int);
+extern void fs_read(int ,void *,size_t);
+extern void * new_page(void );
 uintptr_t loader(_Protect *as, const char *filename) {
-  // TODO();
-  // ramdisk_read(DEFAULT_ENTRY, 0, RAMDISK_SIZE);
-  int fd = fs_open(filename, 0, 0);
-  Log("filename=%s,fd=%d",filename,fd);
-  fs_read(fd, DEFAULT_ENTRY, fs_filesz(fd));
-  fs_close(fd);
-  return (uintptr_t)DEFAULT_ENTRY;
+
+      Log("%s",filename);
+      int fd=fs_open(filename,0,0);
+     size_t size=fs_filesz(fd);
+//      fs_read(fd,DEFAULT_ENTRY,size);
+ 	void *va,*pa;
+	va=DEFAULT_ENTRY;
+	for(;va<size+DEFAULT_ENTRY;va+=PGSIZE){
+	pa=new_page();
+    Log("%x:%x",(uint32_t)pa,(uint32_t)va);
+	_map(as,va,pa);
+	fs_read(fd,pa,PGSIZE);
+	}
+		
+    return (uintptr_t)DEFAULT_ENTRY;
 }
