@@ -134,3 +134,31 @@ make_EHelper(ror){
 	operand_write(id_dest,&t2);
 		print_asm_template2(ror);
 };
+
+make_EHelper(shld) 
+{
+  //TODO PA5
+  rtl_shl(&t0,&id_dest->val,&id_src->val);
+  rtl_li(&t2,id_src2->width);
+  rtl_shli(&t2,&t2,3); 
+  rtl_subi(&t2,&t2,id_src->val);
+  rtl_shr(&t2,&id_src2->val,&t2);
+  rtl_or(&t0,&t0,&t2);
+  operand_write(id_dest,&t0);
+  rtl_update_ZFSF(&t0,id_dest->width);
+  print_asm_template3(shld);
+}
+
+make_EHelper(shrd) 
+{
+  //TODO PA5
+  rtl_shr(&t0,&id_dest->val,&id_src->val);
+  rtl_li(&t2,id_src2->width);
+  rtl_shli(&t2,&t2,3); 
+  rtl_subi(&t2,&t2,id_src->val);
+  rtl_shl(&t2,&id_src2->val,&t2);
+  rtl_or(&t0,&t0,&t2);
+  operand_write(id_dest, &t0);
+  rtl_update_ZFSF(&t0, id_dest->width);
+  print_asm_template3(shrd);
+}
