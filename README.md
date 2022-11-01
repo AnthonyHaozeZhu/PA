@@ -1,3 +1,7 @@
+$\color{red}{NKU同学参考前务必阅读我主页readme中的内容}$
+
+这个是64位机子做的实验，可能跟32位略有出入
+
 # ICS2017 Programming Assignment
 
 This project is the programming assignment of the class ICS(Introduction to Computer System) in Department of Computer Science and Technology, Nanjing University.
